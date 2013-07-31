@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( TrackContours)
+find_package( OpenCV REQUIRED )
+add_executable( ContourTracker ContourTracker.cpp)
+target_link_libraries( ContourTracker ${OpenCV_LIBS} )
