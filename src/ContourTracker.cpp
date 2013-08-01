@@ -38,11 +38,6 @@ void getImageList( string filename,  vector<string>* il )
     ifs.close ( );                                 /* close ifstream */
 }
 
-//Calculates dot product
-double dot( Point A,  Point B )
-{
-	return A.x*B.x+A.y*B.y;
-}
 //Finds the magnitude of a vector
 double findMagnitude( Point vector )
 {
@@ -58,7 +53,7 @@ double angleBetween( Point point1,  Point vertex,  Point point2 )
 	int y2 = point2.y-vertex.y;
 	Point A( x1, y1 );
 	Point B( x2, y2 );
-	double dotProduct = dot( A, B );
+	double dotProduct = A.ddot(B);
 	double magnitudeA = findMagnitude( A );
 	double magnitudeB = findMagnitude( B );
 	double angle = acos( dotProduct/( magnitudeA*magnitudeB ));
@@ -69,78 +64,78 @@ double angleBetween( Point point1,  Point vertex,  Point point2 )
 //Fills a vector with rectangles detected in the given image
 void findRectangles( Mat image,  vector<Contour>  *contours )
 {
-        Mat imageGray;
-        cvtColor( image,  imageGray, CV_BGR2GRAY );
-        blur( imageGray, imageGray,  Size( 3, 3 ));
-        Mat cannyImage;
-        vector<vector<Point> > foundContours;
-        vector<Vec4i> hierarchy;
+    Mat imageGray;
+    cvtColor( image,  imageGray, CV_BGR2GRAY );
+    blur( imageGray, imageGray,  Size( 3, 3 ));
+    Mat cannyImage;
+    vector<vector<Point> > foundContours;
+    vector<Vec4i> hierarchy;
 
-        Canny( imageGray, cannyImage, 100, 200, 3 );
-        //Finds initial contours
-        findContours( cannyImage, foundContours, hierarchy, CV_RETR_TREE, 
-                CV_CHAIN_APPROX_SIMPLE,  Point( 0, 0 ));
+    Canny( imageGray, cannyImage, 100, 200, 3 );
+    //Finds initial contours
+    findContours( cannyImage, foundContours, hierarchy, CV_RETR_TREE, 
+            CV_CHAIN_APPROX_SIMPLE,  Point( 0, 0 ));
 
-        // Gets the hulls of each contour which estimates straight lines when
-        // there is a lot of concavity
-        vector<vector<Point> > hulls;
-        for( size_t i=0; i<foundContours.size( ); i++ )
+    // Gets the hulls of each contour which estimates straight lines when
+    // there is a lot of concavity
+    vector<vector<Point> > hulls;
+    for( size_t i=0; i<foundContours.size( ); i++ )
+    {
+        vector<Point> hull;
+        convexHull( foundContours[i], hull, true );
+        hulls.push_back( hull );
+    }
+
+    //Approximates all the contours into polygons
+    vector<vector<Point> > poly;
+    for( size_t i=0; i<hulls.size( ); i++ )
+    {
+        vector<Point> tempPoly;
+        approxPolyDP( hulls[i], tempPoly, arcLength( foundContours[i], true )*.02, true );
+        poly.push_back( tempPoly ); 	
+    }
+    
+    // Checks to see if any of the polygons have angles that are too acute
+    // or obtuse and stores the result in a vector of boolean flags
+    vector<bool> angles;
+    for(  size_t i=0; i<poly.size( ); i++ ){
+        double lowerThreshold = 45;
+        double upperThreshold = 145;
+        //double firstAngle = angleBetween( poly[i][0], poly[i][1], poly[i][2]);
+        //double secondAngle = angleBetween( poly[i][1], poly[i][2], poly[i][3]);
+        //double thirdAngle = angleBetween( poly[i][2], poly[i][3], poly[i][0]);
+        //double fourthAngle = angleBetween( poly[i][3], poly[i][0], poly[i][1]);
+        //cout << "First: " << firstAngle 
+        //<< " Second: " << secondAngle 
+        //<< " Third: " << thirdAngle 
+        //<< " Fourth: " << fourthAngle << endl;
+        if( angleBetween( poly[i][0], poly[i][1], poly[i][2])<lowerThreshold 
+                || angleBetween( poly[i][1], poly[i][2], poly[i][3])<lowerThreshold 
+                || angleBetween( poly[i][2], poly[i][3], poly[i][0])<lowerThreshold 
+                || angleBetween( poly[i][3], poly[i][0], poly[i][1])<lowerThreshold
+                || angleBetween( poly[i][0], poly[i][1], poly[i][2])>upperThreshold
+                || angleBetween( poly[i][1], poly[i][2], poly[i][3])>upperThreshold 
+                || angleBetween( poly[i][2], poly[i][3], poly[i][0])>upperThreshold 
+                || angleBetween( poly[i][3], poly[i][0], poly[i][1])>upperThreshold )
         {
-            vector<Point> hull;
-            convexHull( foundContours[i], hull, true );
-            hulls.push_back( hull );
+            angles.push_back( false );
         }
-
-        //Approximates all the contours into polygons
-        vector<vector<Point> > poly;
-        for( size_t i=0; i<hulls.size( ); i++ )
+        else 
         {
-            vector<Point> tempPoly;
-            approxPolyDP( hulls[i], tempPoly, arcLength( foundContours[i], true )*.02, true );
-            poly.push_back( tempPoly ); 	
+            angles.push_back( true );
         }
-        
-        // Checks to see if any of the polygons have angles that are too acute
-        // or obtuse and stores the result in a vector of boolean flags
-        vector<bool> angles;
-        for(  size_t i=0; i<poly.size( ); i++ ){
-                double lowerThreshold = 45;
-                double upperThreshold = 145;
-                //double firstAngle = angleBetween( poly[i][0], poly[i][1], poly[i][2]);
-                //double secondAngle = angleBetween( poly[i][1], poly[i][2], poly[i][3]);
-                //double thirdAngle = angleBetween( poly[i][2], poly[i][3], poly[i][0]);
-                //double fourthAngle = angleBetween( poly[i][3], poly[i][0], poly[i][1]);
-                //cout << "First: " << firstAngle 
-                //<< " Second: " << secondAngle 
-                //<< " Third: " << thirdAngle 
-                //<< " Fourth: " << fourthAngle << endl;
-                if( angleBetween( poly[i][0], poly[i][1], poly[i][2])<lowerThreshold 
-                        || angleBetween( poly[i][1], poly[i][2], poly[i][3])<lowerThreshold 
-                        || angleBetween( poly[i][2], poly[i][3], poly[i][0])<lowerThreshold 
-                        || angleBetween( poly[i][3], poly[i][0], poly[i][1])<lowerThreshold
-                        || angleBetween( poly[i][0], poly[i][1], poly[i][2])>upperThreshold
-                        || angleBetween( poly[i][1], poly[i][2], poly[i][3])>upperThreshold 
-                        || angleBetween( poly[i][2], poly[i][3], poly[i][0])>upperThreshold 
-                        || angleBetween( poly[i][3], poly[i][0], poly[i][1])>upperThreshold )
-                {
-                    angles.push_back( false );
-                }
-                else 
-                {
-                    angles.push_back( true );
-                }
-        }
+    }
 
-        for(  size_t i=0; i<poly.size( ); i++ ){
-            //If the given hull is a rectangle,  large enough to not be an
-            //artifact,  and meets the angle thresholds,  it is added to the
-            //return vector
-            if( poly[i].size( )==4 && contourArea( poly[i])>1500 && angles[i]==true )
-            {
-                Contour temp ( poly[i]);
-                contours->push_back( temp );
-            }
+    for(  size_t i=0; i<poly.size( ); i++ ){
+        //If the given hull is a rectangle,  large enough to not be an
+        //artifact,  and meets the angle thresholds,  it is added to the
+        //return vector
+        if( poly[i].size( )==4 && contourArea( poly[i])>1500 && angles[i]==true )
+        {
+            Contour temp ( poly[i]);
+            contours->push_back( temp );
         }
+    }
 }
 
 
