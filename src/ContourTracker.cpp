@@ -38,11 +38,6 @@ void getImageList( string filename,  vector<string>* il )
     ifs.close ( );                                 /* close ifstream */
 }
 
-//Finds the magnitude of a vector
-double findMagnitude( Point vector )
-{
-	return sqrt( vector.x*vector.x + vector.y*vector.y );
-}
 //Calculates the angle between two vectors given the vertex and two outside
 //points
 double angleBetween( Point point1,  Point vertex,  Point point2 )
@@ -54,8 +49,8 @@ double angleBetween( Point point1,  Point vertex,  Point point2 )
 	Point A( x1, y1 );
 	Point B( x2, y2 );
 	double dotProduct = A.ddot(B);
-	double magnitudeA = findMagnitude( A );
-	double magnitudeB = findMagnitude( B );
+	double magnitudeA = norm( A );
+	double magnitudeB = norm( B );
 	double angle = acos( dotProduct/( magnitudeA*magnitudeB ));
 	return angle*180/M_PI; 	
 
