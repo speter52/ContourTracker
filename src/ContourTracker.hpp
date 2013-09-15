@@ -1,9 +1,12 @@
 #ifndef  ContourTracker_INC
 #define  ContourTracker_INC
 #include "Contour.hpp"
+#include <opencv2/video/video.hpp>
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <cv.h>
 #include <vector>
-#include <opencv/highgui.h>
+#include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <string>
 #include <fstream>

@@ -2,10 +2,24 @@
 //Contour Tracker
 //7-10-14
 #include "ContourTracker.hpp"
+#define spc " "
 
 using namespace std;
 using namespace cv;
 
+
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color)
+{
+    for(int y = 0; y < cflowmap.rows; y += step)
+        for(int x = 0; x < cflowmap.cols; x += step)
+        {   
+            const Point2f& fxy = flow.at<Point2f>(y, x); 
+            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+                 color);
+            circle(cflowmap, Point(x,y), 2, color, -1);
+        }   
+}
 
 //Converts vector<Contour> to vector<vector<Point> > which can then be passed
 //into functions like drawContours
@@ -125,11 +139,31 @@ void findRectangles( Mat image,  vector<Contour>  *contours )
 
 int main( int argc,  char **argv )
 {
+    int x = 220;
+    int y = 160;
+    int w = 175;
+    int h = 150;
+    Mat prev, gray, cflow, flow;
     if(  argc<3 )
     {
-        cout << "Usage: " << argv[0] << " " << "[image list] [output video filename]" << endl;
+        cout << "Usage: " << argv[0] << " " << "<image list> <output video filename> [x y w h]" << endl;
         exit(  EXIT_FAILURE );
     }
+    if( argc>3 )
+    {
+        x=atoi( argv[3] );
+        y=atoi( argv[4] );
+        w=atoi( argv[5] );
+        h=atoi( argv[6] );
+    }
+    cout << "x: " << x << spc
+    << "y: " << y << spc
+    << "w: " << w << spc
+    << "h: " << h << endl;
+
+    Rect initial_pos( x, y, w, h );
+    
+
 	vector<string> images;
 	getImageList( argv[1], &images );
 
@@ -137,221 +171,33 @@ int main( int argc,  char **argv )
 	String videoName =  argv[2];
 	Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
 	vidout.open( videoName, CV_FOURCC( 'F', 'M', 'P', '4'), 20.0, firstFrame.size( ), true );
+    cvtColor( firstFrame, gray, CV_BGR2GRAY );
 
-	vector<Contour> tracked; //vector to store contours that are tracked between frames
-	findRectangles( firstFrame, &tracked ); //finds contours and stores them in tracked
-	//Finds initial contours to track on first image
-	//for(  size_t i=0; i<tracked.size( ); i++ ){
-	for( size_t i=0; i<1; i++ ){
-		Scalar color( 0, 0, 255 );
-		vector<vector<Point> > temp;
-		objectToContours( &tracked, &temp );
-		drawContours( firstFrame, temp, i, color, 2, 8, noArray( ), 0, Point( )); //draws first image
-	}
-	cout << "Original tracked size: " << tracked.size( ) <<endl;
-	namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
-	imshow( "Contour Tracking", firstFrame );
-	waitKey( 0 ); 	
+    namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
+    imshow( "Contour Tracking", gray );
+    waitKey( 0 );
 	vidout << firstFrame;
+    prev = gray;
 
 	//Begin image loop
 	for( size_t k=1; k<images.size( ); k++ ){
-        if( tracked.size( )==0 ) waitKey( 0 );
         Mat image = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
         if(  !image.data )
         {
             cout << "Cannot load image." << endl;
             exit(  EXIT_FAILURE );
         }
-        /*			if( k%60==0 || tracked.size( )==0 ){
-                    tracked.clear( );
-                    nomatch.clear( );
-                    findRectangles( image, &tracked );
-                    for(  size_t l=0; l<tracked.size( ); l++ ){
-                    nomatch.push_back( 0 );
-                    }
-                    cout << "60 frames reached - clearing tracked\n";
-                    }	*/	
-
-        cout << "Tracked contours size: " << tracked.size( )<<endl;
-        vector<Contour> newContours; //Stores the contours found in the new frame
-        findRectangles( image, &newContours );
-        cout << "New contours size: " << newContours.size( )<<endl;
-
-        //int oldSize = tracked.size( );
-         			//if( tracked.size( )<=0 ){
-                    //cout << "Finding new contours\n";
-                    //tracked.clear( );
-                    //nomatch.clear( );
-                    //findRectangles( image, &tracked );
-                    //for(  size_t z=0; z<tracked.size( ); z++ ){
-                    //nomatch.push_back( 0 );
-                    //}
-                    //}
-        //Every tracked contour is checked against every new contour to see if there is a match
-        for( size_t m=0; m<tracked.size( ); m++ )
-        {
-            for( size_t n=0; n<newContours.size( ); n++ )
-            {
-                    //Scalar color( 255, 0, 0 ); 	
-                    //Mat drawing = Mat::zeros( firstFrame.size( ), CV_8UC3 );
-                    //drawContours( drawing, tracked, m, color, 2, 8, noArray( ), 0, Point( ));
-                    //namedWindow( "Contour to track",  CV_WINDOW_AUTOSIZE );
-                    //imshow( "Contour to track", drawing );
-                    //moveWindow( "Contour to track", 700, 0 );
-
-                //Histogram test - Creates a bounding rect around the contours and then compares their histograms
-                Rect origRect ( 0, 0, image.cols, image.rows ); 	
-                Mat image2 = image.clone( );
-                Rect trackedContour = boundingRect( tracked[m].contour );
-                Mat trackedCont = image2( trackedContour );
-                Rect newContour ( newContours[n].TL.x, newContours[n].TL.y, trackedContour.width, trackedContour.height );
-                newContour = origRect & newContour;
-                Mat newCont = image2( newContour );
-
-                Mat hsvTracked,  hsvNew;
-                cvtColor( trackedCont, hsvTracked, CV_BGR2HSV );
-                cvtColor( newCont, hsvNew, CV_BGR2HSV );
-
-                int h_bins = 50; int s_bins = 32;
-                int histSize[] = { h_bins,  s_bins };
-
-                float h_ranges[] = { 0,  256 };
-                float s_ranges[] = { 0,  180 };
-
-                const float* ranges[] = { h_ranges,  s_ranges };
-
-                int channels[] = { 0,  1 };
-
-                MatND hist_track,  hist_new;
-                calcHist( &hsvTracked, 1, channels, Mat( ), hist_track, 2, histSize, ranges, true, false );
-                normalize( hist_track, hist_track, 0, 1, NORM_MINMAX, -1, Mat( ));
-                calcHist( &hsvNew, 1, channels, Mat( ), hist_new, 2, histSize, ranges, true, false );
-                normalize( hist_new, hist_new, 0, 1, NORM_MINMAX, -1, Mat( ));
-                double compare = compareHist( hist_track, hist_new, 1 );
-                cout << "compare: " << compare << endl;
-
-
-                //double compareThreshold = 40; //used 40 and .2 for match	
-                double matchThreshold = .08; //used .08 or .13
-                int positionThreshold = 60; //used 60 and .2 for match
-                //int areaThreshold = 2000; //used 2000 and .13 for match
-
-                //Shapes test - Uses moments to compare the actual shape of two contours
-                //TODO: Get matchShapes working
-                double matchReturn = matchShapes( tracked[m].contour, newContours[n].contour, 
-                        CV_CONTOURS_MATCH_I1, 0 ); 
-                cout << "matchShapes return: " << m << " " << n << " " << matchReturn << endl;
-
-                // Position test - Checks to see if the top left ( top right
-                // not included for now ) corners between two contours are
-                // significantly different	
-                bool isNear = true;
-                cout << "Current contour TL: " << tracked[m].TL << " New Contour TL: " << newContours[n].TL << endl;
-                cout << "Current contour BR: " << tracked[m].BR << " New Contour BR: " << newContours[n].BR << endl;
-                int xDiffTL = abs( tracked[m].TL.x-newContours[n].TL.x );
-                int yDiffTL = abs( tracked[m].TL.y-newContours[n].TL.y );
-                int xDiffBR = abs( tracked[m].BR.x-newContours[n].BR.x );
-                int yDiffBR = abs( tracked[m].BR.y-newContours[n].BR.y );
-                cout << "xdiffTL: " << xDiffTL << " ydiffTL: " << yDiffTL << endl;
-                cout << "xdiffBR: " << xDiffBR << " ydiffBR: " << yDiffBR << endl;
-                if( xDiffTL>positionThreshold 
-                        || yDiffTL>positionThreshold
-                      //|| xDiffBR>positionThreshold 
-                      //|| yDiffBR>positionThreshold
-                  ) 
-                {
-                    isNear = false;
-                }
-                cout << "isNear: " << isNear << endl;
-
-                //Area test - Compares the areas between two contours
-                int trackedArea = contourArea( tracked[m].contour );
-                int newArea = contourArea( newContours[n].contour );
-                int areaDifference = abs( trackedArea-newArea );
-                cout << "Area difference: " << areaDifference << endl;
-
-
-                //Displays a bounding rect around two contours
-                namedWindow( "tracked cont", CV_WINDOW_AUTOSIZE );
-                //		imshow( "trackedcont", trackedCont );
-                namedWindow( "newCont", CV_WINDOW_AUTOSIZE );
-                //		imshow( "newCont", newCont );
-                moveWindow( "newCont", 0, 500 );
-                //		waitKey( 0 );
-                cout << "images created\n";
-
-                // If the contour passes all the tests,  it is added to the
-                // tracked vector and taken out of the newContours vector
-                if( matchReturn<=matchThreshold 
-                       //&& isNear==true 
-                       //&& areaDifference<=areaThreshold 
-                       //&& compare<compareThreshold
-                  )
-                {
-                    tracked[m].contour=newContours[n].contour;
-                    tracked[m].nomatch = 0; //set nomatch to 0,  since it was found in that frame
-                    cout << "Match found\n";
-                    newContours.erase( newContours.begin( )+n );
-                    cout << "New contours modified size: " << newContours.size( )<<endl;
-                    //after found,  it can stop trying to match that
-                    //particular tracked contour and move on to match the
-                    //next tracked contour
-                    break; 
-                }
-                if( n==newContours.size( )-1 ) 
-                {
-                    //if no match for the tracked contour is found after
-                    //searching all the new contours,  increment nomatch
-                    tracked[m].nomatch++; 
-                    cout << "No match found,  going to next new contour\n";
-                }
-            }
-            cout << "Going to next tracked contour\n";
-        }
-
-        //Adds unmatched contours to as a new contour to track
-        /*		for(  size_t l=0; l<newContours.size( ); l++ ){
-                tracked.push_back( newContours[l]);
-                nomatch.push_back( 0 );
-                }*/
-
-        cout << "Going to next frame\n";
-
-        int miscountThreshold = 30; //TODO: decide on a threshold to track between frames
-        vector<vector<Point> > contoursToDraw;
-
-
-        //if a tracked contour can't be found after a certain number of
-        //frames,  it is kicked out
-        for(  size_t m=0; m<tracked.size( ); m++ )
-        {
-            if( tracked[m].nomatch>=miscountThreshold )
-            {
-                tracked.erase( tracked.begin( )+m );
-            }
-            //if( nomatch[m]<=1 ) contoursToDraw.push_back( tracked[m]);
-        }
-
-        //Draw the tracked contours for that frame
-        for(  size_t i=0; i<tracked.size( ); i++ )
-        {
-            if( tracked[i].nomatch==0 )
-            {
-                vector<Scalar> colors; 
-                colors.push_back( Scalar ( 0, 0, 255 ) );
-                colors.push_back( Scalar ( 255, 0, 0 ) );
-                colors.push_back( Scalar ( 0, 255, 0 ) );
-                colors.push_back( Scalar ( 0, 0, 0 ) );
-                vector<vector<Point> > contoursToDraw;
-                objectToContours( &tracked, &contoursToDraw ); 	
-                if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 2, 8, noArray( ), 0, Point( ));
-            }
-        }
-
+        cvtColor( image, gray, CV_BGR2GRAY );
+        calcOpticalFlowFarneback( prev, gray, flow, 0.5, 3,
+                15, 3, 5, 1.2, 0 );
+        cvtColor(prev, cflow, CV_GRAY2BGR );
+        drawOptFlowMap( flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
         namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
-        imshow( "Contour Tracking", image );
+
+        cout << flow << endl;
+        imshow( "Contour Tracking", cflow );
         waitKey( 25 );
         vidout << image;
+        swap( prev, gray );
 	}
 }
