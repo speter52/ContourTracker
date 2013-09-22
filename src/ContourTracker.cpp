@@ -183,7 +183,7 @@ int main(int argc, char** argv)
 
             vector<vector<Point> > foundContours;
             vector<Vec4i> hierarchy;
-            findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_TC89_L1, crect.tl() );
+            findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
             double match_score = matchShapes( contour[0], foundContours[0], CV_CONTOURS_MATCH_I3, 2 );
             cout << "Match score: " << match_score << endl;
             if( match_score<.05 )
