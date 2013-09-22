@@ -1,41 +1,17 @@
-//Simon Peter
-//Contour Tracker
-//7-10-14
-#include "ContourTracker.hpp"
-#define spc " "
+#include "opencv2/video/tracking.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
 
-using namespace std;
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <vector>
+
 using namespace cv;
-
-
-static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
-                    double, const Scalar& color)
-{
-    for(int y = 0; y < cflowmap.rows; y += step)
-        for(int x = 0; x < cflowmap.cols; x += step)
-        {   
-            const Point2f& fxy = flow.at<Point2f>(y, x); 
-            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
-                 color);
-            circle(cflowmap, Point(x,y), 2, color, -1);
-        }   
-}
-
-//Converts vector<Contour> to vector<vector<Point> > which can then be passed
-//into functions like drawContours
-void objectToContours( vector<Contour> *contours,  vector<vector<Point> >
-        *vectors )
-{
-	for( size_t	i=0; i<contours->size( ); ++i )
-    {
-		vectors->push_back( (*contours)[i].contour );
-	}
-}
-
+using namespace std;
 
 void getImageList( string filename,  vector<string>* il )
 {
-
     string    ifs_file_name = filename;         /* input  file name */
     ifstream  ifs;                              /* create ifstream object */
 
@@ -52,152 +28,183 @@ void getImageList( string filename,  vector<string>* il )
     ifs.close ( );                                 /* close ifstream */
 }
 
-//Calculates the angle between two vectors given the vertex and two outside
-//points
-double angleBetween( Point point1,  Point vertex,  Point point2 )
+static void help()
 {
-    Point A, B;
-    double dotProduct, angle;
-	A = point1 - vertex;
-	B = point2 - vertex;
-	dotProduct = A.ddot(B);
-	angle = acos( dotProduct/( norm(A)*norm(B) ));
-	return angle;
+    cout << "Usage: ContourTracker <image list> [x y w h]" << endl;
+}
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color)
+{
+    for(int y = 0; y < cflowmap.rows; y += step)
+        for(int x = 0; x < cflowmap.cols; x += step)
+        {
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+                 color);
+            circle(cflowmap, Point(x,y), 2, color, -1);
+        }
 }
 
-//Fills a vector with rectangles detected in the given image
-void findRectangles( Mat image,  vector<Contour>  *contours )
+int main(int argc, char** argv)
 {
-    Mat imageGray, cannyImage;
-    vector<vector<Point> > foundContours;
-    vector<vector<Point> > hulls;
-    vector<vector<Point> > poly;
-    vector<Vec4i> hierarchy;
-
-    cvtColor( image,  imageGray, CV_BGR2GRAY );
-    //blur( imageGray, imageGray,  Size( 3, 3 ));
-    Canny( imageGray, cannyImage, 100, 200, 3 );
-
-    //Finds initial contours
-    findContours( cannyImage, foundContours, hierarchy, CV_RETR_TREE, 
-            CV_CHAIN_APPROX_SIMPLE,  Point( 0, 0 ));
-
-    // Gets the hulls of each contour which estimates straight lines when
-    // there is a lot of concavity
-    for( size_t i=0; i<foundContours.size( ); i++ )
+    help();
+    double alpha=0.3; // For low pass filtering.
+    //int sz=2; // Size of submatrix for averaging.
+    Size rect_margin(10, 10);
+    int npts=102400;
+    int x=220;
+    int y=160;
+    int w=175;
+    int h=150;
+    if( argc>2 )
     {
-        vector<Point> hull;
-        convexHull( foundContours[i], hull, true );
-        hulls.push_back( hull );
-    }
-
-    //Approximates all the contours into polygons
-    for( size_t i=0; i<hulls.size( ); i++ )
-    {
-        vector<Point> tempPoly;
-        approxPolyDP( hulls[i], tempPoly, arcLength( foundContours[i], true )*.02, true );
-        poly.push_back( tempPoly ); 	
+        x = atoi( argv[2] );
+        y = atoi( argv[3] );
+        w = atoi( argv[4] );
+        h = atoi( argv[5] );
     }
     
-    // Checks to see if any of the polygons have angles that are too acute
-    // or obtuse and stores the result in a vector of boolean flags
-    vector<bool> angles;
-    for(  size_t i=0; i<poly.size( ); i++ ){
-        // Note: Changed to radians, since that is native format, we can avoid
-        // floating point errors.
-        double lowerThreshold = M_PI/4;
-        double upperThreshold = 3*M_PI/4;
-        if( angleBetween( poly[i][0], poly[i][1], poly[i][2])<lowerThreshold 
-                || angleBetween( poly[i][1], poly[i][2], poly[i][3])<lowerThreshold 
-                || angleBetween( poly[i][2], poly[i][3], poly[i][0])<lowerThreshold 
-                || angleBetween( poly[i][3], poly[i][0], poly[i][1])<lowerThreshold
-                || angleBetween( poly[i][0], poly[i][1], poly[i][2])>upperThreshold
-                || angleBetween( poly[i][1], poly[i][2], poly[i][3])>upperThreshold 
-                || angleBetween( poly[i][2], poly[i][3], poly[i][0])>upperThreshold 
-                || angleBetween( poly[i][3], poly[i][0], poly[i][1])>upperThreshold )
-        {
-            angles.push_back( false );
-        }
-        else 
-        {
-            angles.push_back( true );
-        }
-    }
-
-    for(  size_t i=0; i<poly.size( ); i++ ){
-        //If the given hull is a rectangle,  large enough to not be an
-        //artifact,  and meets the angle thresholds,  it is added to the
-        //return vector
-        if( poly[i].size( )==4 && contourArea( poly[i])>1500 && angles[i]==true )
-        {
-            Contour temp ( poly[i]);
-            contours->push_back( temp );
-        }
-    }
-}
-
-
-int main( int argc,  char **argv )
-{
-    int x = 220;
-    int y = 160;
-    int w = 175;
-    int h = 150;
-    Mat prev, gray, cflow, flow;
-    if(  argc<3 )
-    {
-        cout << "Usage: " << argv[0] << " " << "<image list> <output video filename> [x y w h]" << endl;
-        exit(  EXIT_FAILURE );
-    }
-    if( argc>3 )
-    {
-        x=atoi( argv[3] );
-        y=atoi( argv[4] );
-        w=atoi( argv[5] );
-        h=atoi( argv[6] );
-    }
-    cout << "x: " << x << spc
-    << "y: " << y << spc
-    << "w: " << w << spc
-    << "h: " << h << endl;
-
-    Rect initial_pos( x, y, w, h );
-    
+    vector<vector<Point> > contour;
+    vector<Point> pts;
+    vector<Point> prevdel(npts, Point(0,0));
+    pts.push_back( Point(x, y) );
+    pts.push_back( Point(x+w/4, y) );
+    pts.push_back( Point(x+w/2, y) );
+    pts.push_back( Point(x+w*3/4, y) );
+    pts.push_back( Point(x+w, y) );
+    pts.push_back( Point(x+w, y+h/4) );
+    pts.push_back( Point(x+w, y+h/2) );
+    pts.push_back( Point(x+w, y+h*3/4) );
+    pts.push_back( Point(x+w, y+h) );
+    pts.push_back( Point(x+w*3/4, y+h) );
+    pts.push_back( Point(x+w/2, y+h) );
+    pts.push_back( Point(x+w/4, y+h) );
+    pts.push_back( Point(x, y+h) );
+    pts.push_back( Point(x, y+h*3/4) );
+    pts.push_back( Point(x, y+h/2) );
+    pts.push_back( Point(x, y+h/4) );
+    contour.push_back(pts);
 
 	vector<string> images;
 	getImageList( argv[1], &images );
 
-	VideoWriter vidout;
-	String videoName =  argv[2];
-	Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
-	vidout.open( videoName, CV_FOURCC( 'F', 'M', 'P', '4'), 20.0, firstFrame.size( ), true );
-    cvtColor( firstFrame, gray, CV_BGR2GRAY );
+    Mat prevgray, gray, flow, cflow, frame;
+    namedWindow("flow", 1);
+    
+    VideoWriter vidout;
+    String videoName = "out.avi";
+    Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
+    vidout.open( videoName, CV_FOURCC( 'F', 'M', 'P', '4'), 20.0, firstFrame.size(), true );
 
-    namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
-    imshow( "Contour Tracking", gray );
-    waitKey( 0 );
-	vidout << firstFrame;
-    prev = gray;
+	for( size_t k=1; k<images.size( ); k++ )
+    {
+        frame = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
+        cvtColor(frame, gray, CV_BGR2GRAY);
 
-	//Begin image loop
-	for( size_t k=1; k<images.size( ); k++ ){
-        Mat image = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
-        if(  !image.data )
+        if( prevgray.data )
         {
-            cout << "Cannot load image." << endl;
-            exit(  EXIT_FAILURE );
-        }
-        cvtColor( image, gray, CV_BGR2GRAY );
-        calcOpticalFlowFarneback( prev, gray, flow, 0.5, 3,
-                15, 3, 5, 1.2, 0 );
-        cvtColor(prev, cflow, CV_GRAY2BGR );
-        drawOptFlowMap( flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
-        namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
+            calcOpticalFlowFarneback(prevgray, gray, flow, 0.25, 5, 30, 5, 5, 1.2, 0);
+            //blur(flow, flow, Size(5, 5), Point(-1,-1) );
+            cvtColor(prevgray, cflow, CV_GRAY2BGR);
+            drawOptFlowMap(flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
+            int i=0;
+            for( vector<Point>::iterator it=contour[0].begin();
+                it!=contour[0].end(); ++it, ++i )
+            {
+                //Mat sub(flow, Rect(*it, Size(1, 1))); // locate submatrix at point
+                // Resize submatrix
+                //sub.adjustROI( sz, sz, sz, sz );
+                //Scalar m;
+                //m = mean(sub);
+                //cout << "m: " << m <<endl;
+                Point2f delk = flow.at<Point2f>(*it);
+                /* 
+                Point2f delk1, delk2;
+                if( it!=contour[0].begin() )
+                {
+                    delk2 = flow.at<Point2f>(*(it-1));
+                }
+                else
+                {
+                    delk2 = flow.at<Point2f>(*(it+(npts-1)));
+                }
+                if( (it+1)!=contour[0].end() )
+                {
+                    delk1 = flow.at<Point2f>(*(it+1));
+                }
+                else
+                {
+                    delk1 = flow.at<Point2f>(*(it-(npts-1)));
+                }
+                Point del = 0.25*(delk1+delk2) + 0.5*delk;
+                */
+                Point del = delk;
+                //cout << "delf: " << delf << endl;
+                //Point del( (int) delf.x, (int) delf.y );
+                //Point del( (int) m[0], (int) m[1] );
+                if( k!=1 )
+                {
+                    prevdel[i] = alpha*prevdel[i] + (1-alpha)*del;
+                }
+                else
+                {
+                    prevdel[i] = del;
+                }
+                
+                *it+=prevdel[i];
+                if( it==contour[0].begin() )
+                {
+                    cout << *it << endl;
+                }
+            }
+            //mask repositioned contour
+            //Mat mask = Mat::zeros( gray.size(), CV_8UC1 );
+            Rect image_rect( Point(0,0), frame.size() );
+            Rect crect = boundingRect( contour[0] );
+            crect+=rect_margin;
+            crect-=(Point) rect_margin*0.5;
+            crect&=image_rect;
+            //rectangle( mask, crect, 255, CV_FILLED );
+            // find new contour
+            Mat edges;
+            cout << "Crect:" << crect << endl;
+            Mat masked_gray(gray,crect);
+            //Canny(gray, edges,  0, 200, 7);
+            Canny(masked_gray, edges,  150, 200, 3);
+            cout << "Canny" << endl;
+            int dilation_size = 3;
+            Mat element = getStructuringElement( MORPH_RECT,
+                                       Size( 2*dilation_size + 1, 2*dilation_size+1 ),
+                                       Point( dilation_size, dilation_size ) );
+            dilate( edges, edges, element, Point(-1, -1) );
 
-        cout << flow << endl;
-        imshow( "Contour Tracking", cflow );
-        waitKey( 25 );
-        vidout << image;
-        swap( prev, gray );
-	}
+            //imshow("flow", edges);
+            //waitKey(0);
+
+            vector<vector<Point> > foundContours;
+            vector<Vec4i> hierarchy;
+            findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_TC89_L1, crect.tl() );
+            double match_score = matchShapes( contour[0], foundContours[0], CV_CONTOURS_MATCH_I3, 2 );
+            cout << "Match score: " << match_score << endl;
+            if( match_score<.05 )
+            {
+                contour[0]=foundContours[0];
+            }
+            // sanity check
+            drawContours( cflow, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
+            imshow("flow", cflow);
+            vidout << cflow;
+        }
+        else
+        {
+            drawContours( gray, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
+            imshow("flow", gray);
+            waitKey(0);
+        }
+
+        if(waitKey(30)>=0)
+            break;
+        std::swap(prevgray, gray);
+    }
+    return 0;
 }
