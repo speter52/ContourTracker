@@ -89,6 +89,9 @@ int main(int argc, char** argv)
 	getImageList( argv[1], &images );
 
     Mat prevgray, gray, flow, cflow, frame;
+    //double prev_area=1;
+    //double prev_def=1;
+    double lambda=0.6;
     namedWindow("flow", 1);
     
     VideoWriter vidout;
@@ -100,11 +103,12 @@ int main(int argc, char** argv)
     {
         frame = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
         cvtColor(frame, gray, CV_BGR2GRAY);
+        //medianBlur(gray,gray,5);
 
         if( prevgray.data )
         {
             calcOpticalFlowFarneback(prevgray, gray, flow, 0.25, 5, 30, 5, 5, 1.2, 0);
-            //blur(flow, flow, Size(5, 5), Point(-1,-1) );
+            //medianBlur(flow, flow, 3 );
             cvtColor(prevgray, cflow, CV_GRAY2BGR);
             drawOptFlowMap(flow, cflow, 16, 1.5, CV_RGB(0, 255, 0));
             int i=0;
@@ -167,11 +171,9 @@ int main(int argc, char** argv)
             //rectangle( mask, crect, 255, CV_FILLED );
             // find new contour
             Mat edges;
-            cout << "Crect:" << crect << endl;
             Mat masked_gray(gray,crect);
             //Canny(gray, edges,  0, 200, 7);
-            Canny(masked_gray, edges,  150, 200, 3);
-            cout << "Canny" << endl;
+            Canny(masked_gray, edges,  100, 200, 3);
             int dilation_size = 3;
             Mat element = getStructuringElement( MORPH_RECT,
                                        Size( 2*dilation_size + 1, 2*dilation_size+1 ),
@@ -180,16 +182,64 @@ int main(int argc, char** argv)
 
             //imshow("flow", edges);
             //waitKey(0);
+            vector<Vec4i> cds;
+            //vector<vector<Point> > hulls;
+            vector<int> hull;
+            //hulls.push_back( h );
+            convexHull( contour[0], hull );
+            convexityDefects( contour[0], hull, cds );
+            double flow_defect=0;
+            double flow_area;
+            for( vector<Vec4i>::iterator it=cds.begin();
+                    it!=cds.end(); ++it )
+            {
+                flow_defect+=(*it)[3]/256.0;
+            }
+            flow_area = contourArea( contour[0] );
+            //contour[0]=hulls[0];
+
+            double min_vary=100;
 
             vector<vector<Point> > foundContours;
             vector<Vec4i> hierarchy;
             findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
-            double match_score = matchShapes( contour[0], foundContours[0], CV_CONTOURS_MATCH_I3, 2 );
-            cout << "Match score: " << match_score << endl;
-            if( match_score<.05 )
+            //double min_match_score=1;
+            int m=0;
+            for( vector<vector<Point> >::iterator con=foundContours.begin();
+                    con!=foundContours.end(); ++con, ++m )
             {
-                contour[0]=foundContours[0];
+                Mat contimg = cflow.clone();
+                drawContours( contimg, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
+                drawContours( contimg, foundContours, m, Scalar(255,0,0), 2, 8, noArray( ), 0, Point( ));
+                //drawContours( contimg, hulls, 0, Scalar(0,255,0), 2, 8, noArray( ), 0, Point( ));
+                double new_vary;
+                double new_area;
+                double new_defect=0;
+                vector<int> new_hull;
+                vector<Vec4i> new_cds;
+                convexHull( *con, new_hull );
+                convexityDefects( *con, new_hull, new_cds );
+                for( vector<Vec4i>::iterator it=new_cds.begin();
+                        it!=new_cds.end(); ++it )
+                {
+                    new_defect+=(*it)[3]/256.0;
+                }
+                new_area = contourArea( *con );
+                new_vary=lambda*abs(new_area-flow_area)/(1+flow_area) + (1-lambda)*abs(new_defect-flow_defect)/(1+flow_defect);
+                cout << "M: " << m << endl;
+                cout << "dA: " << abs(new_area-flow_area)/(1+flow_area) <<endl;
+                cout << "dD: " << abs(new_defect-flow_defect)/(1+flow_defect) <<endl;
+                cout << "Vary: " << new_vary <<endl;
+                if( new_vary<min_vary && new_vary<0.5 )
+                {
+                    min_vary=new_vary;
+                    contour[0]=*con;
+                    //imshow("flow", contimg);
+                    //waitKey(0);
+                }
+
             }
+            //contour[0]=foundContours[0];
             // sanity check
             drawContours( cflow, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
             imshow("flow", cflow);
