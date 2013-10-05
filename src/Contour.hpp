@@ -1,5 +1,6 @@
 #ifndef  Contour_INC
 #define  Contour_INC
+#include </usr/include/opencv2/opencv.hpp>
 #include <cv.h>
 #include <vector>
 using namespace std;

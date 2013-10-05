@@ -2,6 +2,8 @@
 #define  ContourTracker_INC
 #include "Contour.hpp"
 #include <cv.h>
+#include </usr/include/opencv2/opencv.hpp>
+#include </usr/include/opencv/highgui.h>
 #include <vector>
 #include <opencv/highgui.h>
 #include <iostream>
