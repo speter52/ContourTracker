@@ -233,6 +233,7 @@ int main( int argc,  char **argv )
                 int areaThreshold = 2000; //used 2000 and .13 for match
 				double distanceThreshold = 20;
 
+				//Centroid Test
 				Moments trackedMom;
 				Moments newMom;
 				trackedMom = moments(tracked[m].contour,false);
@@ -240,7 +241,8 @@ int main( int argc,  char **argv )
 				Point trackedCenter(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
 				Point newCenter(newMom.m10/newMom.m00,newMom.m01/newMom.m00);
 				double distance = sqrt(((newCenter.x-trackedCenter.x)*(newCenter.x-trackedCenter.x))+((newCenter.y-trackedCenter.y)*(newCenter.y-trackedCenter.y)));
-			
+		
+				//Hu Moments Test - TODO: Test still needs to be implemented	
 				double trackedHu[7];
 				double newHu[7];
 				HuMoments(trackedMom,trackedHu);
