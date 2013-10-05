@@ -91,7 +91,7 @@ int main(int argc, char** argv)
     Mat prevgray, gray, flow, cflow, frame;
     //double prev_area=1;
     //double prev_def=1;
-    double lambda=0.6;
+    double lambda=0.0;
     namedWindow("flow", 1);
     
     VideoWriter vidout;
@@ -101,6 +101,7 @@ int main(int argc, char** argv)
 
 	for( size_t k=1; k<images.size( ); k++ )
     {
+        cout << "NEW FRAME" << endl;
         frame = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
         cvtColor(frame, gray, CV_BGR2GRAY);
         //medianBlur(gray,gray,5);
@@ -122,26 +123,6 @@ int main(int argc, char** argv)
                 //m = mean(sub);
                 //cout << "m: " << m <<endl;
                 Point2f delk = flow.at<Point2f>(*it);
-                /* 
-                Point2f delk1, delk2;
-                if( it!=contour[0].begin() )
-                {
-                    delk2 = flow.at<Point2f>(*(it-1));
-                }
-                else
-                {
-                    delk2 = flow.at<Point2f>(*(it+(npts-1)));
-                }
-                if( (it+1)!=contour[0].end() )
-                {
-                    delk1 = flow.at<Point2f>(*(it+1));
-                }
-                else
-                {
-                    delk1 = flow.at<Point2f>(*(it-(npts-1)));
-                }
-                Point del = 0.25*(delk1+delk2) + 0.5*delk;
-                */
                 Point del = delk;
                 //cout << "delf: " << delf << endl;
                 //Point del( (int) delf.x, (int) delf.y );
@@ -168,77 +149,110 @@ int main(int argc, char** argv)
             crect+=rect_margin;
             crect-=(Point) rect_margin*0.5;
             crect&=image_rect;
+            Mat rect_mat = 255*Mat::ones(frame.size(), CV_8UC3);
+            
+            rectangle(rect_mat, crect, 0, CV_FILLED);
+            GaussianBlur(rect_mat, rect_mat, Size(25,25), 120, 120);
+            //imshow("flow", rect_mat);
+            //waitKey(0);
             //rectangle( mask, crect, 255, CV_FILLED );
             // find new contour
-            Mat edges;
-            Mat masked_gray(gray,crect);
+            Mat edges ;
+            int thresh=50;
+            int N=11;
+            //Mat masked_gray(gray,crect);
+
+            double flow_area, min_sim;
+            min_sim=10;
+            flow_area = contourArea( contour[0] );
+            vector<Point> contour_copy = contour[0];
+
+            Mat masked_frame;
+            //addWeighted( rect_mat, .5, frame, .5, 0.0, masked_frame );
+            masked_frame = rect_mat + frame;
+            //imshow("flow", masked_frame);
+            //waitKey(0);
+            Mat edges0(masked_frame.size(), CV_8U );
+            for( int c = 0; c < 3; c++ )
+            {
+                int ch[] = {c, 0};
+                mixChannels(&masked_frame, 1, &edges0, 1, ch, 1);
+                cout << "Mix channels" << endl;
+
+                // try several threshold levels
+                for( int l = 0; l < N; l++ )
+                {
+                    // hack: use Canny instead of zero threshold level.
+                    // Canny helps to catch squares with gradient shading
+                    if( l == 0 )
+                    {
+                        // apply Canny. Take the upper threshold from slider
+                        // and set the lower to 0 (which forces edges merging)
+                        Canny(edges0, edges, 0, thresh, 5);
+                        // dilate canny output to remove potential
+                        // holes between edge segments
+                        dilate(edges, edges, Mat(), Point(-1,-1));
+                    }
+                    else
+                    {
+                        // apply threshold if l!=0:
+                        //     tgray(x,y) = gray(x,y) < (l+1)*255/N ? 255 : 0
+                        edges = edges0 >= (l+1)*255/N;
+                    }
+
+                    // find contours and store them all as a list
+
+                    vector<vector<Point> > foundContours;
+                    vector<Vec4i> hierarchy;
+                    findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
+                    //double min_match_score=1;
+                    int m=0;
+                    for( vector<vector<Point> >::iterator con=foundContours.begin();
+                    con!=foundContours.end(); ++con, ++m )
+                    {
+                        Mat contimg = cflow.clone();
+                        vector<Point> approx;
+                        //approxPolyDP(Mat(*con), approx, arcLength(*con, true)*0.02, true);
+                        //*con=approx;
+                        drawContours( contimg, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
+                        drawContours( contimg, foundContours, m, Scalar(255,0,0), 2, 8, noArray( ), 0, Point( ));
+                        //drawContours( contimg, hulls, 0, Scalar(0,255,0), 2, 8, noArray( ), 0, Point( ));
+                        double new_area, dif_area;
+                        double new_match;
+                        double similarity;
+                        new_match = matchShapes( contour[0], *con, CV_CONTOURS_MATCH_I2, 0 );
+                        new_area = contourArea( *con );
+                        dif_area = abs(new_area-flow_area)/max(new_area,flow_area);
+                        similarity = (lambda*new_match)*(lambda*new_match) + (1-lambda)*dif_area*(1-lambda)*dif_area;
+
+                        if( similarity<min_sim && new_match<0.1 && dif_area<.15 )
+                        {
+                            cout << "Similarity: " << similarity << endl;
+                            cout << "Match: " << new_match << endl;
+                            cout << "Dif area: " << dif_area << endl;
+                            //imshow("flow", contimg);
+                            //waitKey(0);
+                            min_sim=similarity;
+                            contour_copy=*con;
+                        }
+                    }
+                }
+            }
+            contour[0]=contour_copy;
             //Canny(gray, edges,  0, 200, 7);
-            Canny(masked_gray, edges,  100, 200, 3);
-            int dilation_size = 3;
-            Mat element = getStructuringElement( MORPH_RECT,
-                                       Size( 2*dilation_size + 1, 2*dilation_size+1 ),
-                                       Point( dilation_size, dilation_size ) );
-            dilate( edges, edges, element, Point(-1, -1) );
+            //Canny(masked_gray, edges,  100, 200, 3);
+            //int dilation_size = 3;
+            //Mat element = getStructuringElement( MORPH_RECT,
+             //                          Size( 2*dilation_size + 1, 2*dilation_size+1 ),
+              //                         Point( dilation_size, dilation_size ) );
+            //dilate( edges, edges, element, Point(-1, -1) );
 
             //imshow("flow", edges);
             //waitKey(0);
-            vector<Vec4i> cds;
             //vector<vector<Point> > hulls;
-            vector<int> hull;
             //hulls.push_back( h );
-            convexHull( contour[0], hull );
-            convexityDefects( contour[0], hull, cds );
-            double flow_defect=0;
-            double flow_area;
-            for( vector<Vec4i>::iterator it=cds.begin();
-                    it!=cds.end(); ++it )
-            {
-                flow_defect+=(*it)[3]/256.0;
-            }
-            flow_area = contourArea( contour[0] );
             //contour[0]=hulls[0];
 
-            double min_vary=100;
-
-            vector<vector<Point> > foundContours;
-            vector<Vec4i> hierarchy;
-            findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
-            //double min_match_score=1;
-            int m=0;
-            for( vector<vector<Point> >::iterator con=foundContours.begin();
-                    con!=foundContours.end(); ++con, ++m )
-            {
-                Mat contimg = cflow.clone();
-                drawContours( contimg, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
-                drawContours( contimg, foundContours, m, Scalar(255,0,0), 2, 8, noArray( ), 0, Point( ));
-                //drawContours( contimg, hulls, 0, Scalar(0,255,0), 2, 8, noArray( ), 0, Point( ));
-                double new_vary;
-                double new_area;
-                double new_defect=0;
-                vector<int> new_hull;
-                vector<Vec4i> new_cds;
-                convexHull( *con, new_hull );
-                convexityDefects( *con, new_hull, new_cds );
-                for( vector<Vec4i>::iterator it=new_cds.begin();
-                        it!=new_cds.end(); ++it )
-                {
-                    new_defect+=(*it)[3]/256.0;
-                }
-                new_area = contourArea( *con );
-                new_vary=lambda*abs(new_area-flow_area)/(1+flow_area) + (1-lambda)*abs(new_defect-flow_defect)/(1+flow_defect);
-                cout << "M: " << m << endl;
-                cout << "dA: " << abs(new_area-flow_area)/(1+flow_area) <<endl;
-                cout << "dD: " << abs(new_defect-flow_defect)/(1+flow_defect) <<endl;
-                cout << "Vary: " << new_vary <<endl;
-                if( new_vary<min_vary && new_vary<0.5 )
-                {
-                    min_vary=new_vary;
-                    contour[0]=*con;
-                    //imshow("flow", contimg);
-                    //waitKey(0);
-                }
-
-            }
             //contour[0]=foundContours[0];
             // sanity check
             drawContours( cflow, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
