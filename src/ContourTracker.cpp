@@ -50,7 +50,7 @@ int main(int argc, char** argv)
     help();
     double alpha=0.3; // For low pass filtering.
     //int sz=2; // Size of submatrix for averaging.
-    Size rect_margin(10, 10);
+    Size rect_margin(50, 50);
     int npts=102400;
     int x=220;
     int y=160;
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
             crect+=rect_margin;
             crect-=(Point) rect_margin*0.5;
             crect&=image_rect;
-            Mat rect_mat = 255*Mat::ones(frame.size(), CV_8UC3);
+            Mat rect_mat = Mat(frame.size(), CV_8UC3, Scalar(255,255,255));
             
             rectangle(rect_mat, crect, 0, CV_FILLED);
             GaussianBlur(rect_mat, rect_mat, Size(25,25), 120, 120);
@@ -170,8 +170,10 @@ int main(int argc, char** argv)
             Mat masked_frame;
             //addWeighted( rect_mat, .5, frame, .5, 0.0, masked_frame );
             masked_frame = rect_mat + frame;
-            //imshow("flow", masked_frame);
-            //waitKey(0);
+            // TODO crop outside of the blur and ensure area strictly less
+            // than WxH
+            imshow("flow", masked_frame);
+            waitKey(0);
             Mat edges0(masked_frame.size(), CV_8U );
             for( int c = 0; c < 3; c++ )
             {
@@ -191,20 +193,24 @@ int main(int argc, char** argv)
                         Canny(edges0, edges, 0, thresh, 5);
                         // dilate canny output to remove potential
                         // holes between edge segments
-                        dilate(edges, edges, Mat(), Point(-1,-1));
+                        //dilate(edges, edges, Mat(), Point(-1,-1));
                     }
+                    /*  
                     else
                     {
                         // apply threshold if l!=0:
                         //     tgray(x,y) = gray(x,y) < (l+1)*255/N ? 255 : 0
                         edges = edges0 >= (l+1)*255/N;
                     }
+                    */
+                    imshow("flow", edges);
+                    waitKey(0);
 
                     // find contours and store them all as a list
 
                     vector<vector<Point> > foundContours;
                     vector<Vec4i> hierarchy;
-                    findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
+                    findContours( edges, foundContours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE); //, crect.tl() );
                     //double min_match_score=1;
                     int m=0;
                     for( vector<vector<Point> >::iterator con=foundContours.begin();
@@ -224,8 +230,10 @@ int main(int argc, char** argv)
                         new_area = contourArea( *con );
                         dif_area = abs(new_area-flow_area)/max(new_area,flow_area);
                         similarity = (lambda*new_match)*(lambda*new_match) + (1-lambda)*dif_area*(1-lambda)*dif_area;
+                            imshow("flow", contimg);
+                            waitKey(0);
 
-                        if( similarity<min_sim && new_match<0.1 && dif_area<.15 )
+                        if( similarity<min_sim && new_match<0.2 && dif_area<.25 )
                         {
                             cout << "Similarity: " << similarity << endl;
                             cout << "Match: " << new_match << endl;
