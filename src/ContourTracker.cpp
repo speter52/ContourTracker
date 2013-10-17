@@ -91,7 +91,7 @@ int main(int argc, char** argv)
     Mat prevgray, gray, flow, cflow, frame;
     //double prev_area=1;
     //double prev_def=1;
-    double lambda=0.0;
+    double lambda=0.3;
     namedWindow("flow", 1);
     
     VideoWriter vidout;
@@ -172,8 +172,8 @@ int main(int argc, char** argv)
             masked_frame = rect_mat + frame;
             // TODO crop outside of the blur and ensure area strictly less
             // than WxH
-            imshow("flow", masked_frame);
-            waitKey(0);
+            //imshow("flow", masked_frame);
+            //waitKey(0);
             Mat edges0(masked_frame.size(), CV_8U );
             for( int c = 0; c < 3; c++ )
             {
@@ -203,8 +203,8 @@ int main(int argc, char** argv)
                         edges = edges0 >= (l+1)*255/N;
                     }
                     */
-                    imshow("flow", edges);
-                    waitKey(0);
+                    //imshow("flow", edges);
+                    //waitKey(0);
 
                     // find contours and store them all as a list
 
@@ -226,12 +226,12 @@ int main(int argc, char** argv)
                         double new_area, dif_area;
                         double new_match;
                         double similarity;
-                        new_match = matchShapes( contour[0], *con, CV_CONTOURS_MATCH_I2, 0 );
+                        new_match = matchShapes( contour[0], *con, CV_CONTOURS_MATCH_I1, 0 );
                         new_area = contourArea( *con );
                         dif_area = abs(new_area-flow_area)/max(new_area,flow_area);
                         similarity = (lambda*new_match)*(lambda*new_match) + (1-lambda)*dif_area*(1-lambda)*dif_area;
-                            imshow("flow", contimg);
-                            waitKey(0);
+                            //imshow("flow", contimg);
+                            //waitKey(0);
 
                         if( similarity<min_sim && new_match<0.2 && dif_area<.25 )
                         {
