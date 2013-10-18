@@ -26,7 +26,9 @@
 #define ARC_MIN_AREA 2500            /*  */
 #define ARC_RECT_MARGIN 10            /* margin around bounding rect for mask when matching contours */
 #define ARC_ALPHA 0.70
+#define ARC_LAMBDA 0.30            /*  */
 #define ARC_MIN_SCORE 0.45            /*  */
+
 using namespace std;
 using namespace cv;
 
@@ -34,8 +36,10 @@ bool init( int argc, char **argv, vector<string>& image_list,
         VideoWriter& vidout, vector<Scalar>& colors, int* num_contours );
 void help ( char** argv );
 void get_image_list(string filename, vector<string>& il);
-int find_contours( Mat& image, vector<vector<Point> >& contours, int num_contours, int algorithm );
-void flow();
+int find_contours( Mat& image, vector<vector<Point> >& contours,
+        vector<vector<Point> > prevdel, int num_contours, int algorithm );
+void flow( Mat& prev_image, Mat& image, vector<vector<Point> >& contours,
+        vector<vector<Point> > prevdel );
 void match_contours();
 void display_contours( Mat& image, vector<vector<Point> >& contours, VideoWriter& v, vector<Scalar>& colors );
 

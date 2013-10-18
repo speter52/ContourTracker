@@ -88,7 +88,7 @@ bool init( int argc, char **argv, vector<string>& image_list,
         exit( EXIT_FAILURE );
     }
 
-    for( int i=0; i<(*num_contours); ++i )
+    for( int i=0; i<128; ++i )
     {
         Scalar c( rng.uniform(0, 255),
                   rng.uniform(0, 255),
@@ -105,7 +105,8 @@ bool init( int argc, char **argv, vector<string>& image_list,
  *  Description:  Finds N contours using chosen algorithm.
  * =====================================================================================
  */
-int find_contours( Mat& image, vector<vector<Point> >& contours, int num_contours, int algorithm=0 )
+int find_contours( Mat& image, vector<vector<Point> >& contours,
+        vector<vector<Point> >& prevdel, int num_contours, int algorithm=0 )
 {
     int num_good_con;
     Mat gray, canny;
@@ -135,7 +136,13 @@ int find_contours( Mat& image, vector<vector<Point> >& contours, int num_contour
     {
         if( contourArea( *con )>ARC_MIN_AREA )
         {
+            //int num_points;
+
+            //num_points = con->size();
+            vector<Point> pd( 10000, Point(0, 0) );
+
             contours.push_back( *con );
+            prevdel.push_back( pd );
             ++num_good_con;
         }
         if( num_good_con>=num_contours ) break;
@@ -143,7 +150,8 @@ int find_contours( Mat& image, vector<vector<Point> >& contours, int num_contour
     return num_good_con;
 }
 
-void flow( Mat& prev_image, Mat& image, vector<vector<Point> >& contours )
+void flow( Mat& prev_image, Mat& image, vector<vector<Point> >& contours,
+        vector<vector<Point> > prevdel )
 {
     Mat gray, prev_gray, flow;
 
@@ -152,21 +160,35 @@ void flow( Mat& prev_image, Mat& image, vector<vector<Point> >& contours )
 
     calcOpticalFlowFarneback( prev_gray, gray, flow, 0.25, 5, 30, 5, 5, 1.2, 0 );
 
+    int i=0;
     for( vector<vector<Point> >::iterator con=contours.begin();
-            con!=contours.end(); ++con )
+            con!=contours.end(); ++i, ++con )
     {
-        int i=0;
+        vector<Point> pd;
+        pd = prevdel[i];
+        int j=0;
         for( vector<Point>::iterator pt=con->begin();
-                pt!=con->end(); ++pt, ++i )
+                pt!=con->end(); ++pt, ++j )
         {
-            Point2f delk;
-            Point del;
+            Point2f delk = flow.at<Point2f>(*pt);
+            if( abs(delk.x)>640 || abs(delk.y)>480 ) break;
+            Point del = delk;                         /* converts Point2f to Point */
+            cout << "Delk: " << delk << endl;
+            cout << "Del: " << del << endl;
 
-            delk = flow.at<Point2f>(*pt);
-            del = delk;                         /* converts Point2f to Point */
-
-            *pt += del;
+            cout << pd[j] << endl;
+            if( pd[j]==Point(0, 0) )
+            {
+                pd[j] = del;
+            }
+            else
+            {
+                Point del2 = ARC_LAMBDA*pd[j] + (1-ARC_LAMBDA)*del;
+                pd[j] = del2;
+            }
+            *pt += pd[j];
         }
+        prevdel[i] = pd;
     }
 
 
@@ -195,7 +217,7 @@ void match_contours( Mat& image, vector<Point>& contour )
 
     masked_gray = Mat(gray,crect);
     Canny(masked_gray, canny, 100, 200, 3);
-    //dilate( edges, edges, Mat(), Point(-1, -1) );
+    dilate( canny, canny, Mat(), Point(-1, -1) );
     findContours( canny, found_contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, crect.tl() );
 
     contour_copy = contour;
@@ -209,12 +231,13 @@ void match_contours( Mat& image, vector<Point>& contour )
         double match_score, area_dif, score;
 
         fc_area = contourArea( *fc );
+        if( fc_area==0 || c_area==0 ) continue;
 
-        area_dif = abs( fc_area-c_area )/(1+max( c_area, fc_area ));
+        area_dif = abs( fc_area-c_area )/(max( c_area, fc_area ));
         match_score = matchShapes( contour_copy, *fc, CV_CONTOURS_MATCH_I1, 0 );
         score = (1-ARC_ALPHA)*(1-ARC_ALPHA)*match_score*match_score+ARC_ALPHA*ARC_ALPHA*area_dif*area_dif;
         cout << "Score: " << score << endl;
-        if( score<min_score && score!=0 )
+        if( score<min_score && area_dif<0.10 )
         {
             contour = *fc;
             min_score = score;
@@ -256,11 +279,12 @@ int main( int argc,  char **argv )
 {
     VideoWriter vidout;
     vector<string> image_list;
-    vector<vector<Point> > contours;
+    vector<vector<Point> > contours, prevdel;
     int num_contours;
     int num_found_contours;
     Mat first_frame, image, prev_image;
     vector<Scalar> colors;
+    char key;
 
     namedWindow("ARC", CV_WINDOW_AUTOSIZE );
 
@@ -274,7 +298,9 @@ int main( int argc,  char **argv )
 
     /* Perform initial segmentation and extract desired contours. */
     first_frame = imread( image_list[0], CV_LOAD_IMAGE_UNCHANGED );
-    num_found_contours = find_contours( first_frame, contours, num_contours );                 
+
+    num_found_contours = find_contours( first_frame, contours, prevdel, num_contours );                 
+
     if( verbosity==ARC_VERBOSE )
     {
         /* Describe found contours. */
@@ -288,6 +314,7 @@ int main( int argc,  char **argv )
     }
 
     prev_image = first_frame;
+    key=0;
 
     for( vector<string>::iterator im=image_list.begin();
             im!=image_list.end(); ++im )
@@ -296,7 +323,14 @@ int main( int argc,  char **argv )
         image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
         image_copy = image.clone();
 
-        flow( prev_image, image, contours );                                 /* Estimate position of contour using flow. */
+        key = (char) waitKey(10);
+        if( key=='n' ) 
+        {
+            cout << "OK" << endl;
+            find_contours( image, contours, prevdel, num_contours );
+        }
+        /* Estimate position of contour using flow. */
+        flow( prev_image, image, contours, prevdel );
         for( vector<vector<Point> >::iterator con=contours.begin();
                 con!=contours.end(); ++con )
         {
