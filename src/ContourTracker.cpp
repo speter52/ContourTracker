@@ -245,8 +245,31 @@ int main( int argc,  char **argv )
 				//Hu Moments Test - TODO: Test still needs to be implemented	
 				double trackedHu[7];
 				double newHu[7];
-				HuMoments(trackedMom,trackedHu);
-				HuMoments(newMom,newHu);
+				HuMoments(trackedMom,trackedHu);//Calculates Hu Moments for tracked contour
+				HuMoments(newMom,newHu);//Calculates Hu Moments for new contour to be matched
+				
+				Matx<double,7,1> xminusy;//Vector that represents (x-y) where x is the tracked Hu Moments and y is the new contour Hu Moments
+				for(int g=0;g<7;g++){
+					xminusy(0,g) = trackedHu[g]-newHu[g];
+				}
+				
+				double xsum=0;//Calculates mean of x vector
+				for(int g=0;g<7;g++){
+					xsum+=trackedHu[g];
+				}
+				double xmean = xsum/7;
+
+				Matx<double,7,1> xminusMean;//Calculates the (x-u) vector for the covariance matrix calculation
+				for(int g=0;g<7;g++){
+					xminusMean(g,0) = trackedHu[g]-xmean;
+				}
+				Matx<double,7,7> S;//Calculate the S matrix by multipying the last vector by it's transpose, then dividing by 7
+				S = (xminusMean*xminusMean.t())*(1/7);
+
+				Matx<double,1,1> finalProduct;
+				finalProduct = xminusy.t()*S.inv()*xminusy;
+				double mahalanobis = sqrt(finalProduct(0,0));//Square root the final product to get the mahalanobis distance
+				cout<<"Mahalanobis Return: "<<mahalanobis<<endl;	
 						
                 //Shapes test - Uses moments to compare the actual shape of two contours
                 //TODO: Get matchShapes working
