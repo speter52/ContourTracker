@@ -158,8 +158,8 @@ int main(int argc, char** argv)
             //rectangle( mask, crect, 255, CV_FILLED );
             // find new contour
             Mat edges ;
-            int thresh=50;
-            int N=11;
+            //int thresh=50;
+            //int N=11;
             //Mat masked_gray(gray,crect);
 
             double flow_area, min_sim;
@@ -182,19 +182,19 @@ int main(int argc, char** argv)
                 cout << "Mix channels" << endl;
 
                 // try several threshold levels
-                for( int l = 0; l < N; l++ )
+                //for( int l = 0; l < N; l++ )
                 {
                     // hack: use Canny instead of zero threshold level.
                     // Canny helps to catch squares with gradient shading
-                    if( l == 0 )
-                    {
+                    //if( l == 0 )
+                    //{
                         // apply Canny. Take the upper threshold from slider
                         // and set the lower to 0 (which forces edges merging)
-                        Canny(edges0, edges, 0, thresh, 5);
+                        Canny(edges0, edges, 100, 200, 3);
                         // dilate canny output to remove potential
                         // holes between edge segments
-                        //dilate(edges, edges, Mat(), Point(-1,-1));
-                    }
+                        dilate(edges, edges, Mat(), Point(-1,-1));
+                    //}
                     /*  
                     else
                     {
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
                             //imshow("flow", contimg);
                             //waitKey(0);
 
-                        if( similarity<min_sim && new_match<0.2 && dif_area<.25 )
+                        if( similarity<min_sim && new_match<0.8 && dif_area<.25 )
                         {
                             cout << "Similarity: " << similarity << endl;
                             cout << "Match: " << new_match << endl;
@@ -263,9 +263,16 @@ int main(int argc, char** argv)
 
             //contour[0]=foundContours[0];
             // sanity check
-            drawContours( cflow, contour, 0, Scalar(0,0,255), 2, 8, noArray( ), 0, Point( ));
+            Mat mask = Mat(frame.size(), CV_8UC1, Scalar(0));
+            drawContours( cflow, contour, 0, 0, 1, 8, noArray( ), 0, Point( ));
+            drawContours( mask, contour, 0, Scalar(255), CV_FILLED, 8, noArray( ), 0, Point( ));
             imshow("flow", cflow);
-            vidout << cflow;
+            vidout << mask;
+            int n = images[k].find_last_of('/');
+            string base= "out/";
+            string fn = images[k].substr(n+1);
+            base.append(fn);
+            imwrite(base, mask);
         }
         else
         {
