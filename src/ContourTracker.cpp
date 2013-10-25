@@ -186,6 +186,12 @@ int main( int argc,  char **argv )
         //Every tracked contour is checked against every new contour to see if there is a match
         for( size_t m=0; m<tracked.size( ); m++ )
         {
+			Mat image2 = image.clone();
+			Rect trackedRect = boundingRect(tracked[m].contour);
+			Mat trackedImage = image2(trackedRect);
+//			namedWindow("Tracked",CV_WINDOW_AUTOSIZE);
+//			imshow("Tracked",trackedImage);
+			
             for( size_t n=0; n<newContours.size( ); n++ )
             {
                     //Scalar color( 255, 0, 0 ); 	
@@ -228,10 +234,11 @@ int main( int argc,  char **argv )
 */
 
      //           double compareThreshold = 50; //used 40 and .2 for match	
-                double matchThreshold = .30; //used .08 or .13
+ //               double matchThreshold = .30; //used .08 or .13
  //               int positionThreshold = 60; //used 60 and .2 for match
                 int areaThreshold = 2000; //used 2000 and .13 for match
 				double distanceThreshold = 20;
+				double mahalanobisThreshold = .5;
 
 				//Centroid Test
 				Moments trackedMom;
@@ -257,20 +264,30 @@ int main( int argc,  char **argv )
 				for(int g=0;g<7;g++){
 					xsum+=trackedHu[g];
 				}
-				double xmean = xsum/7;
+				double xmean = xsum/7.0;
 
 				Matx<double,7,1> xminusMean;//Calculates the (x-u) vector for the covariance matrix calculation
 				for(int g=0;g<7;g++){
 					xminusMean(g,0) = trackedHu[g]-xmean;
 				}
 				Matx<double,7,7> S;//Calculate the S matrix by multipying the last vector by it's transpose, then dividing by 7
-				S = (xminusMean*xminusMean.t())*(1/7);
-
+				S = (xminusMean*xminusMean.t())*(1.0/7.0);
+				
+				Matx<double,7,7> Sinverse;
+				invert(S,Sinverse,DECOMP_SVD);	
 				Matx<double,1,1> finalProduct;
-				finalProduct = xminusy.t()*S.inv()*xminusy;
+				finalProduct = xminusy.t()*Sinverse*xminusy;
 				double mahalanobis = sqrt(finalProduct(0,0));//Square root the final product to get the mahalanobis distance
 				cout<<"Mahalanobis Return: "<<mahalanobis<<endl;	
-						
+			
+
+			
+			Mat image3 = image.clone();
+			Rect newRect= boundingRect(newContours[n].contour);
+			Mat newImage = image2(newRect);
+//			namedWindow("New Contour",CV_WINDOW_AUTOSIZE);
+//			imshow("New Contour",newImage);
+//			waitKey(0);
                 //Shapes test - Uses moments to compare the actual shape of two contours
                 //TODO: Get matchShapes working
                 double matchReturn = matchShapes( tracked[m].contour, newContours[n].contour, 
@@ -308,7 +325,8 @@ int main( int argc,  char **argv )
 
                 // If the contour passes all the tests,  it is added to the
                 // tracked vector and taken out of the newContours vector
-                if( matchReturn<=matchThreshold 
+                if( mahalanobis<mahalanobisThreshold
+					//matchReturn<=matchThreshold 
     //                   && isNear==true 
                        && areaDifference<=areaThreshold 
     //                   && compare<compareThreshold
