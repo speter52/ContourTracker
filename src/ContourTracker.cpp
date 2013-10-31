@@ -237,8 +237,8 @@ int main( int argc,  char **argv )
  //               double matchThreshold = .30; //used .08 or .13
  //               int positionThreshold = 60; //used 60 and .2 for match
                 int areaThreshold = 2000; //used 2000 and .13 for match
-				double distanceThreshold = 20;
-				double mahalanobisThreshold = .5;
+				double distanceThreshold = 50;
+				double mahalanobisThreshold = 0.60;
 
 				//Centroid Test
 				Moments trackedMom;
@@ -395,7 +395,7 @@ int main( int argc,  char **argv )
                 colors.push_back( Scalar ( 0, 0, 0 ) );
                 vector<vector<Point> > contoursToDraw;
                 objectToContours( &tracked, &contoursToDraw ); 	
-                if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 2, 8, noArray( ), 0, Point( ));
+                if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
             }
         }
 
