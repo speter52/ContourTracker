@@ -12,8 +12,11 @@
 using namespace std;
 using namespace cv;
 
+void init ( int argc, char **argv, vector<string>& images, VideoWriter& vidout );
+void help ( char **argv );
 void objectToContours( vector<Contour> *contours,  vector<vector<Point> > *vectors );
 void getImageList( string filename,  vector<string>* il );
-double angleBetween( Point point1,  Point vertex,  Point point2 );
-void findRectangles( Mat image,  vector<Contour>  *contours );
+void getContours( Mat image,  vector<Contour>  *contours );
+double centroidTest ( Moments& trackedMom, Moments& newMom );
+double huMomentsTest ( Moments& trackedMom, Moments& newMom );
 #endif   // ----- #ifndef ContourTracker_INC  ----- 
