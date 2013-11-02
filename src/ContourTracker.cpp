@@ -368,12 +368,15 @@ int main( int argc,  char **argv )
 
         //if a tracked contour can't be found after a certain number of
         //frames,  it is kicked out
-        for(  size_t m=0; m<tracked.size( ); m++ )
+        vector<Contour>::iterator it=tracked.begin();
+        while( it!=tracked.end() )
         {
-            if( tracked[m].nomatch>=miscountThreshold )
+            if( it->nomatch>=miscountThreshold )
             {
-                tracked.erase( tracked.begin( )+m );
+                it=tracked.erase( it );
+                continue;
             }
+            ++it;
         }
 
         //Draw the tracked contours for that frame

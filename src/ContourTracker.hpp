@@ -41,4 +41,5 @@ void getImageList( string filename,  vector<string>* il );
 void getContours( Mat image,  vector<Contour>  *contours );
 double centroidTest ( Moments& trackedMom, Moments& newMom );
 double huMomentsTest ( Moments& trackedMom, Moments& newMom );
+
 #endif   // ----- #ifndef ContourTracker_INC  ----- 
