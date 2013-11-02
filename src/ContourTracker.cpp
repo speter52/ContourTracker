@@ -239,7 +239,6 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
 
 int main( int argc,  char **argv )
 {
-
     vector<Scalar> colors;
 	vector<string> images;
 	VideoWriter vidout;
@@ -256,14 +255,19 @@ int main( int argc,  char **argv )
 		objectToContours( &tracked, &temp );
 		drawContours( firstFrame, temp, i, colors[i], 1, 8, noArray( ), 0, Point( )); //draws first image
 	}
-	cout << "Original tracked size: " << tracked.size( ) <<endl;
-	namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
+    if( verbosity==ARC_VERBOSE )
+    {
+        cout << "Original tracked size: " << tracked.size( ) <<endl;
+        namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
+    }
 	imshow( "Contour Tracking", firstFrame );
 	waitKey( 0 ); 	
 	vidout << firstFrame;
 
 	//Begin image loop
 	for( size_t k=1; k<images.size( ); k++ ){
+        vector<Contour> newContours;
+
         Mat image = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
         if(  !image.data )
         {
@@ -276,10 +280,9 @@ int main( int argc,  char **argv )
 			getContours(image,&tracked);
     	}	
 
-        cout << "Tracked contours size: " << tracked.size( )<<endl;
-        vector<Contour> newContours; //Stores the contours found in the new frame
+        if( verbosity==ARC_VERBOSE ) cout << "Tracked contours size: " << tracked.size( )<<endl;
         getContours( image, &newContours );
-        cout << "New contours size: " << newContours.size( )<<endl;
+        if( verbosity==ARC_VERBOSE ) cout << "New contours size: " << newContours.size( )<<endl;
 
         //Every tracked contour is checked against every new contour to see if there is a match
         for( size_t m=0; m<tracked.size( ); m++ )
@@ -287,8 +290,6 @@ int main( int argc,  char **argv )
 			Mat image2 = image.clone();
 			Rect trackedRect = boundingRect(tracked[m].contour);
 			Mat trackedImage = image2(trackedRect);
-//			namedWindow("Tracked",CV_WINDOW_AUTOSIZE);
-//			imshow("Tracked",trackedImage);
 			
             for( size_t n=0; n<newContours.size( ); n++ )
             {
@@ -313,16 +314,20 @@ int main( int argc,  char **argv )
                 //TODO: Get matchShapes working
                 double matchReturn = matchShapes( tracked[m].contour, newContours[n].contour, 
                         CV_CONTOURS_MATCH_I1, 0 ); 
-                cout << "matchShapes return: " << m << " " << n << " " << matchReturn << endl;
+                if( verbosity==ARC_VERBOSE )
+                {
+                    cout << "matchShapes return: " << m << " " << n << " " << matchReturn << endl;
+                }
                 
                 //Area test - Compares the areas between two contours
                 int trackedArea = contourArea( tracked[m].contour );
                 int newArea = contourArea( newContours[n].contour );
                 int areaDifference = abs( trackedArea-newArea );
-                cout << "Area difference: " << areaDifference << endl;
-
-
-                cout << "images created\n";
+                if( verbosity==ARC_VERBOSE )
+                {
+                    cout << "Area difference: " << areaDifference << endl; 
+                    cout << "images created\n";
+                }
 
                 // If the contour passes all the tests,  it is added to the
                 // tracked vector and taken out of the newContours vector
@@ -336,9 +341,9 @@ int main( int argc,  char **argv )
                 {
                     tracked[m].contour=newContours[n].contour;
                     tracked[m].nomatch = 0; //set nomatch to 0,  since it was found in that frame
-                    cout << "Match found\n";
+                    if( verbosity==ARC_VERBOSE ) cout << "Match found\n";
                     newContours.erase( newContours.begin( )+n );
-                    cout << "New contours modified size: " << newContours.size( )<<endl;
+                    if( verbosity==ARC_VERBOSE ) cout << "New contours modified size: " << newContours.size( )<<endl;
                     //after found,  it can stop trying to match that
                     //particular tracked contour and move on to match the
                     //next tracked contour
@@ -349,15 +354,14 @@ int main( int argc,  char **argv )
                     //if no match for the tracked contour is found after
                     //searching all the new contours,  increment nomatch
                     tracked[m].nomatch++;
-                    cout << "No match found,  going to next new contour\n";
+                    if( verbosity==ARC_VERBOSE ) cout << "No match found,  going to next new contour\n";
 					
                 }
             }
-            cout << "Going to next tracked contour\n";
+            if( verbosity==ARC_VERBOSE ) cout << "Going to next tracked contour\n";
         }
 
-
-        cout << "Going to next frame\n";
+        if( verbosity==ARC_VERBOSE ) cout << "Going to next frame\n";
 
         vector<vector<Point> > contoursToDraw;
 
