@@ -84,7 +84,13 @@ void getContours( Mat image,  vector<Contour>  *contours )
     void
 help ( char **argv )
 {
-    cout << "Usage: " << argv[0] << " " << "[image list] [output video filename]" << endl;
+    cout << "Usage: " << argv[0] << " <-l image list> [options]" << endl
+         << endl
+         << "OPTIONS" << endl
+         << "-h" << tab << "Display this help." << endl
+         << "-l <filename>" << tab << "Path to the image list." << endl
+         << "-n <number>" << tab << "Number of contours to track." << endl
+         << "-v" << tab << "Verbose output." << endl;
     return;
 }		/* -----  end of function help  ----- */
 
