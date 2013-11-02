@@ -213,7 +213,7 @@ huMomentsTest ( Moments& trackedMom, Moments& newMom )
     finalProduct = xminusy.t()*Sinverse*xminusy;
     mahalanobis = sqrt(finalProduct(0,0));//Square root the final product to get the mahalanobis distance
 
-    cout<<"Mahalanobis Return: "<<mahalanobis<<endl;	
+    if( verbosity==ARC_VERBOSE ) cout<<"Mahalanobis Return: "<<mahalanobis<<endl;	
 
     return mahalanobis;
 }		/* -----  end of function huMomentsTest  ----- */
