@@ -6,6 +6,12 @@
 using namespace std;
 using namespace cv;
 
+// GLOBALS
+int areaThreshold = ARC_DEFAULT_AREA; //used 2000 and .13 for match
+double distanceThreshold = ARC_DEFAULT_DISTANCE;
+double mahalanobisThreshold = ARC_DEFAULT_MAHALANOBOIS;
+int miscountThreshold = ARC_DEFAULT_MISCOUNT; //TODO: decide on a threshold to track between frames
+int verbosity;
 
 //Converts vector<Contour> to vector<vector<Point> > which can then be passed
 //into functions like drawContours
@@ -89,7 +95,11 @@ help ( char **argv )
          << "OPTIONS" << endl
          << "-h" << tab << "Display this help." << endl
          << "-l <filename>" << tab << "Path to the image list." << endl
-         << "-n <number>" << tab << "Number of contours to track." << endl
+         << "-o <filename>" << tab << "Output video name." << endl
+         << "-d <double>" << tab << "Maximum distance between like contours." << endl
+         << "-a <integer>" << tab << "Maximum area difference between like contours." << endl
+         << "-m <double>" << tab << "Maximum mahalanobois difference between like contours." << endl
+         << "-mc <integer>" << tab << "Maximum untracked frames before contour is lost." << endl
          << "-v" << tab << "Verbose output." << endl;
     return;
 }		/* -----  end of function help  ----- */
@@ -101,22 +111,58 @@ help ( char **argv )
  * =====================================================================================
  */
     void
-init ( int argc, char **argv, vector<string>& images, VideoWriter& vidout )
+init ( int argc, char **argv, vector<string>& images, VideoWriter& vidout, vector<Scalar>& colors )
 {
-    // Check for valid input
-    if( argc<3 )
+    RNG rng;
+    string listname;
+    Mat first_frame;
+	String videoName =  ARC_DEFAULT_VIDOUT;
+
+    // Parse input arguments
+    if( argc==1 ) 
     {
-        help( argv );
+        help(argv);
         exit( EXIT_FAILURE );
+    }
+    for ( int i = 1; i < argc; i += 1 ) 
+    {
+        if( !strcmp(argv[i], ARC_HELP_FLAG) ) 
+        {
+            help( argv );
+            exit( EXIT_SUCCESS );
+        }
+        if( !strcmp(argv[i], ARC_IMAGELIST_NAME) ) 
+        {
+            listname = argv[++i];
+            continue;
+        }
+        if( !strcmp(argv[i], ARC_VIDOUT) ) 
+        {
+            videoName = argv[++i];
+            continue;
+        }
+        if( !strcmp(argv[i], ARC_VERBOSE_FLAG) ) verbosity=ARC_VERBOSE; 
     }
 
     // Prepare images
-	getImageList( argv[1], &images );
+	getImageList( listname, &images );
 
     // Setup video
-	String videoName =  argv[2];
 	Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
 	vidout.open( videoName, CV_FOURCC( 'F', 'M', 'P', '4'), 20.0, firstFrame.size( ), true );
+    if( !vidout.isOpened() )
+    {
+        cerr << "Could not open video file: " << videoName << endl;
+        exit( EXIT_FAILURE );
+    }
+
+    for( int i=0; i<ARC_NUM_COLORS; ++i )
+    {
+        Scalar c( rng.uniform(0, 255),
+                  rng.uniform(0, 255),
+                  rng.uniform(0, 255) );
+        colors.push_back(c);
+    }
     return ;
 }		/* -----  end of function init  ----- */
 
@@ -193,26 +239,22 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
 
 int main( int argc,  char **argv )
 {
-    int areaThreshold = 2000; //used 2000 and .13 for match
-    double distanceThreshold = 50;
-    double mahalanobisThreshold = 0.60;
-    int miscountThreshold = 40; //TODO: decide on a threshold to track between frames
 
+    vector<Scalar> colors;
 	vector<string> images;
 	VideoWriter vidout;
 	vector<Contour> tracked; //vector to store contours that are tracked between frames
 
-    init( argc, argv, images, vidout );
+    init( argc, argv, images, vidout, colors );
 
 	//Find initial contours to track on first image.
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
 	getContours( firstFrame, &tracked ); //finds contours and stores them in tracked
 	for( size_t i=0; i<1; i++ )
     {
-		Scalar color( 0, 0, 255 );
 		vector<vector<Point> > temp;
 		objectToContours( &tracked, &temp );
-		drawContours( firstFrame, temp, i, color, 2, 8, noArray( ), 0, Point( )); //draws first image
+		drawContours( firstFrame, temp, i, colors[i], 1, 8, noArray( ), 0, Point( )); //draws first image
 	}
 	cout << "Original tracked size: " << tracked.size( ) <<endl;
 	namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
@@ -335,11 +377,6 @@ int main( int argc,  char **argv )
         {
             if( tracked[i].nomatch==0 )
             {
-                vector<Scalar> colors; 
-                colors.push_back( Scalar ( 0, 0, 255 ) );
-                colors.push_back( Scalar ( 255, 0, 0 ) );
-                colors.push_back( Scalar ( 0, 255, 0 ) );
-                colors.push_back( Scalar ( 0, 0, 0 ) );
                 vector<vector<Point> > contoursToDraw;
                 objectToContours( &tracked, &contoursToDraw ); 	
                 if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
