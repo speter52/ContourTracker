@@ -180,11 +180,8 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
     Point trackedCenter(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
     Point newCenter(newMom.m10/newMom.m00,newMom.m01/newMom.m00);
 
-    distance = sqrt( 
-            ((newCenter.x-trackedCenter.x) *(newCenter.x-trackedCenter.x)) 
-            +((newCenter.y-trackedCenter.y) *(newCenter.y-trackedCenter.y))
-            );
-    cout << "D1: " << distance << endl;
+    // L2 norm of distance between centers.
+    distance = norm(newCenter-trackedCenter);
     return distance;
 }		/* -----  end of function centroidTest  ----- */
 
