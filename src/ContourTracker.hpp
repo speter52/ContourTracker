@@ -16,6 +16,8 @@ using namespace cv;
 
 /* Internal parameters */
 #define ARC_NUM_COLORS 128            /* Number of random colors to generate. */
+#define ARC_MIN_AREA 500            /* minimum area of a good contour */
+#define ARC_LAMBDA 0.60
 /* Command line flags */
 #define ARC_HELP_FLAG "-h"            /*  */
 #define ARC_IMAGELIST_NAME "-l"            /* image list */
@@ -34,13 +36,21 @@ using namespace cv;
 #define ARC_DEFAULT_MAHALANOBOIS 0.60            /* Max mahalanobois distance */
 #define ARC_DEFAULT_AREA 2000            /* Maximum area difference */
 #define ARC_DEFAULT_MISCOUNT 40          /* Max frames without match */
-#define ARC_MIN_AREA 500            /* minimum area of a good contour */
-void init ( int argc, char **argv, vector<string>& images, VideoWriter& vidout, vector<Scalar>& colors );
+
+void matchContours ( Mat image, Contour& con, 
+        vector<Contour>& newContours );
+void displayContours ( Mat image, vector<Contour> tracked,
+        VideoWriter vidout, vector<Scalar> colors );
+void init ( int argc, char **argv, vector<string>& images,
+        VideoWriter& vidout, vector<Scalar>& colors );
 void help ( char **argv );
-void objectToContours( vector<Contour> *contours,  vector<vector<Point> > *vectors );
+void objectToContours( vector<Contour> *contours,
+        vector<vector<Point> > *vectors );
 void getImageList( string filename,  vector<string>* il );
 void getContours( Mat image,  vector<Contour>  *contours );
 double centroidTest ( Moments& trackedMom, Moments& newMom );
 double huMomentsTest ( Moments& trackedMom, Moments& newMom );
+void flow( Mat prev_image, Mat image, vector<Contour>& tracked );
+        
 
 #endif   // ----- #ifndef ContourTracker_INC  ----- 

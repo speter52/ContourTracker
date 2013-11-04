@@ -181,6 +181,51 @@ void getContours( Mat image,  vector<Contour>  *contours )
     }
 }
 
+void flow( Mat prev_image, Mat image, vector<Contour>& tracked )
+{
+    Mat gray, prev_gray, flow;
+
+    cvtColor( image, gray, CV_BGR2GRAY );
+    cvtColor( prev_image, prev_gray, CV_BGR2GRAY );
+
+    calcOpticalFlowFarneback( prev_gray, gray, flow, 0.25, 5, 30, 5, 5, 1.2, 0 );
+
+    int i=0;
+    for( vector<Contour>::iterator tr=tracked.begin();
+            tr!=tracked.end(); ++i, ++tr )
+    {
+        vector<Point> con, pd;
+        con = tr->contour;
+        pd = tr->prevdel;
+
+        int j=0;
+        for( vector<Point>::iterator pt=con.begin();
+                pt!=con.end(); ++pt, ++j )
+        {
+            Point2f delk = flow.at<Point2f>(*pt);
+            if( abs(delk.x)>640 || abs(delk.y)>480 ) break;
+            Point del = delk;                         // converts Point2f to Point
+            if( verbosity==ARC_VERBOSE )
+            {
+                cout << "Delk: " << delk << endl;
+                cout << "Del: " << del << endl;
+                cout << pd[j] << endl;
+            }
+
+            if( pd[j]==Point(0, 0) )
+            {
+                pd[j] = del;
+            }
+            else
+            {
+                Point del2 = ARC_LAMBDA*pd[j] + (1-ARC_LAMBDA)*del;
+                pd[j] = del2;
+            }
+            *pt += pd[j];
+        }
+        tr->prevdel = pd;
+    }
+}
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -340,6 +385,7 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
 
 int main( int argc,  char **argv )
 {
+    Mat prev_image;
     vector<Scalar> colors;
 	vector<string> images;
 	VideoWriter vidout;
@@ -364,19 +410,21 @@ int main( int argc,  char **argv )
 	imshow( "Contour Tracking", firstFrame );
 	waitKey( 0 ); 	
 	vidout << firstFrame;
+    prev_image=firstFrame.clone();
 
 	//Begin image loop
     for( vector<String>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
         vector<Contour> newContours;
-
         Mat image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
         if(  !image.data )
         {
             cout << "Cannot load image." << endl;
             exit(  EXIT_FAILURE );
         }
+        Mat image2 = image.clone();
+
         if( tracked.size( )==0 )
         {
 			waitKey( 0 );
@@ -387,8 +435,8 @@ int main( int argc,  char **argv )
         getContours( image, &newContours );
         if( verbosity==ARC_VERBOSE ) cout << "New contours size: " << newContours.size( )<<endl;
 
+        //flow( prev_image, image, tracked );
         //Every tracked contour is checked against every new contour to see if there is a match
-        Mat image2 = image.clone();
         for( vector<Contour>::iterator con=tracked.begin();
                 con!=tracked.end(); ++con )
         {
@@ -419,5 +467,6 @@ int main( int argc,  char **argv )
         }
 
         displayContours( image2, tracked, vidout, colors );
+        prev_image = image.clone();
 	}
 }

@@ -5,11 +5,11 @@
 #include <vector>
 using namespace std;
 using namespace cv;
+#define ARC_PREVDEL_SIZE 1024            /*  */
 class Contour{
 	public: 
 		vector<Point> contour;
-		Point TL;
-		Point BR;
+        vector<Point> prevdel;
 		int nomatch;
 		Contour( vector<Point> cntr );
 };
