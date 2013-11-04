@@ -34,6 +34,7 @@ using namespace cv;
 #define ARC_DEFAULT_MAHALANOBOIS 0.60            /* Max mahalanobois distance */
 #define ARC_DEFAULT_AREA 2000            /* Maximum area difference */
 #define ARC_DEFAULT_MISCOUNT 40          /* Max frames without match */
+#define ARC_MIN_AREA 500            /* minimum area of a good contour */
 void init ( int argc, char **argv, vector<string>& images, VideoWriter& vidout, vector<Scalar>& colors );
 void help ( char **argv );
 void objectToContours( vector<Contour> *contours,  vector<vector<Point> > *vectors );

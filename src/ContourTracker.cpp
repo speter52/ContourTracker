@@ -49,10 +49,111 @@ void getImageList( string filename,  vector<string>* il )
     ifs.close ( );                                 /* close ifstream */
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  displayContours
+ *  Description:  draws contours, writes to video, etc
+ * =====================================================================================
+ */
+    void
+displayContours ( Mat image, vector<Contour> tracked, VideoWriter vidout, vector<Scalar> colors )
+{
+    //Draw the tracked contours for that frame
+    vector<vector<Point> > contoursToDraw;
+    objectToContours( &tracked, &contoursToDraw ); 	
+    for(  size_t i=0; i<tracked.size( ); i++ )
+    {
+        if( tracked[i].nomatch==0 )
+        {
+            if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
+        }
+    }
+
+    namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
+    imshow( "Contour Tracking", image );
+    waitKey( 25 );
+    vidout << image;
+    return;
+}		/* -----  end of function displayContours  ----- */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  matchContours
+ *  Description:  Attempts to replace a contour with a newer, matching contour.
+ * =====================================================================================
+ */
+    void
+matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
+{
+    for( vector<Contour>::iterator newcon=newContours.begin();
+     newcon!=newContours.end(); ++newcon )
+    {
+        Moments trackedMom;
+        Moments newMom;
+        double distance, mahalanobis;
+
+        Mat image3 = image.clone();
+        Rect newRect= boundingRect(newcon->contour);
+        Mat newImage = image3(newRect);
+
+        trackedMom = moments(con.contour,false);
+        newMom = moments(newcon->contour,false);
+
+        //Centroid Test
+        distance = centroidTest( trackedMom, newMom );
+
+        //Hu Moments Test - TODO: Test still needs to be implemented	
+        mahalanobis = huMomentsTest( trackedMom, newMom );
+    
+        //Shapes test - Uses moments to compare the actual shape of two contours
+        //TODO: Get matchShapes working
+        double matchReturn = matchShapes( con.contour, newcon->contour, 
+                CV_CONTOURS_MATCH_I1, 0 ); 
+        if( verbosity==ARC_VERBOSE )
+        {
+            //cout << "matchShapes return: " << m << " " << n << " " << matchReturn << endl;
+            cout << "matchShapes return: " << matchReturn << endl;
+        }
+        
+        //Area test - Compares the areas between two contours
+        int trackedArea = contourArea( con.contour );
+        int newArea = contourArea( newcon->contour );
+        int areaDifference = abs( trackedArea-newArea );
+        if( verbosity==ARC_VERBOSE )
+        {
+            cout << "Area difference: " << areaDifference << endl; 
+            cout << "images created\n";
+        }
+
+        // If the contour passes all the tests,  it is added to the
+        // tracked vector and taken out of the newContours vector
+        if( mahalanobis<mahalanobisThreshold
+            //matchReturn<=matchThreshold 
+//                   && isNear==true 
+               && areaDifference<=areaThreshold 
+//                   && compare<compareThreshold
+                && distance<distanceThreshold
+          )
+        {
+            con.contour=newcon->contour;
+            con.nomatch = 0; //set nomatch to 0,  since it was found in that frame
+            if( verbosity==ARC_VERBOSE ) cout << "Match found\n";
+            newContours.erase( newcon );
+            if( verbosity==ARC_VERBOSE ) cout << "New contours modified size: " << newContours.size( )<<endl;
+            //after found,  it can stop trying to match that
+            //particular tracked contour and move on to match the
+            //next tracked contour
+            break; 
+        }
+    }
+    return;
+}		/* -----  end of function matchContours  ----- */
+
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  getContours
- *  Description:  Finds good contours in given frame.
+ *  Description:  Finds good contours in given frame, adds them to the list of contours.
  * =====================================================================================
  */
 void getContours( Mat image,  vector<Contour>  *contours )
@@ -70,12 +171,12 @@ void getContours( Mat image,  vector<Contour>  *contours )
     findContours( cannyImage, foundContours, hierarchy, CV_RETR_TREE, 
             CV_CHAIN_APPROX_SIMPLE,  Point( 0, 0 ));
 
-    for( size_t i=0; i<foundContours.size(); i++ )
+    for( vector<vector<Point> >::iterator con=foundContours.begin();
+            con!=foundContours.end(); ++con )
     {
-        if( contourArea(foundContours[i])>500 )
+        if( contourArea(*con)>ARC_MIN_AREA )
         {
-            Contour temp (foundContours[i]);
-            (*contours).push_back(temp);
+            contours->push_back( Contour(*con) );
         }
     }
 }
@@ -265,10 +366,12 @@ int main( int argc,  char **argv )
 	vidout << firstFrame;
 
 	//Begin image loop
-	for( size_t k=1; k<images.size( ); k++ ){
+    for( vector<String>::iterator im=images.begin();
+            im!=images.end(); ++im )
+    {
         vector<Contour> newContours;
 
-        Mat image = imread( images[k], CV_LOAD_IMAGE_UNCHANGED );
+        Mat image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
         if(  !image.data )
         {
             cout << "Cannot load image." << endl;
@@ -285,86 +388,22 @@ int main( int argc,  char **argv )
         if( verbosity==ARC_VERBOSE ) cout << "New contours size: " << newContours.size( )<<endl;
 
         //Every tracked contour is checked against every new contour to see if there is a match
-        for( size_t m=0; m<tracked.size( ); m++ )
+        Mat image2 = image.clone();
+        for( vector<Contour>::iterator con=tracked.begin();
+                con!=tracked.end(); ++con )
         {
-			Mat image2 = image.clone();
-			Rect trackedRect = boundingRect(tracked[m].contour);
+			Rect trackedRect = boundingRect(con->contour);
 			Mat trackedImage = image2(trackedRect);
+            con->nomatch++; // increment here, because it will go to zero if match found.
 			
-            for( size_t n=0; n<newContours.size( ); n++ )
-            {
-                Moments trackedMom;
-                Moments newMom;
-                double distance, mahalanobis;
+            matchContours( image, *con, newContours );
 
-                Mat image3 = image.clone();
-                Rect newRect= boundingRect(newContours[n].contour);
-                Mat newImage = image2(newRect);
-
-                trackedMom = moments(tracked[m].contour,false);
-                newMom = moments(newContours[n].contour,false);
-
-				//Centroid Test
-                distance = centroidTest( trackedMom, newMom );
-		
-				//Hu Moments Test - TODO: Test still needs to be implemented	
-                mahalanobis = huMomentsTest( trackedMom, newMom );
-			
-                //Shapes test - Uses moments to compare the actual shape of two contours
-                //TODO: Get matchShapes working
-                double matchReturn = matchShapes( tracked[m].contour, newContours[n].contour, 
-                        CV_CONTOURS_MATCH_I1, 0 ); 
-                if( verbosity==ARC_VERBOSE )
-                {
-                    cout << "matchShapes return: " << m << " " << n << " " << matchReturn << endl;
-                }
-                
-                //Area test - Compares the areas between two contours
-                int trackedArea = contourArea( tracked[m].contour );
-                int newArea = contourArea( newContours[n].contour );
-                int areaDifference = abs( trackedArea-newArea );
-                if( verbosity==ARC_VERBOSE )
-                {
-                    cout << "Area difference: " << areaDifference << endl; 
-                    cout << "images created\n";
-                }
-
-                // If the contour passes all the tests,  it is added to the
-                // tracked vector and taken out of the newContours vector
-                if( mahalanobis<mahalanobisThreshold
-					//matchReturn<=matchThreshold 
-    //                   && isNear==true 
-                       && areaDifference<=areaThreshold 
-    //                   && compare<compareThreshold
-						&& distance<distanceThreshold
-                  )
-                {
-                    tracked[m].contour=newContours[n].contour;
-                    tracked[m].nomatch = 0; //set nomatch to 0,  since it was found in that frame
-                    if( verbosity==ARC_VERBOSE ) cout << "Match found\n";
-                    newContours.erase( newContours.begin( )+n );
-                    if( verbosity==ARC_VERBOSE ) cout << "New contours modified size: " << newContours.size( )<<endl;
-                    //after found,  it can stop trying to match that
-                    //particular tracked contour and move on to match the
-                    //next tracked contour
-                    break; 
-                }
-                if( n==newContours.size( )-1 ) 
-                {
-                    //if no match for the tracked contour is found after
-                    //searching all the new contours,  increment nomatch
-                    tracked[m].nomatch++;
-                    if( verbosity==ARC_VERBOSE ) cout << "No match found,  going to next new contour\n";
-					
-                }
-            }
             if( verbosity==ARC_VERBOSE ) cout << "Going to next tracked contour\n";
         }
 
         if( verbosity==ARC_VERBOSE ) cout << "Going to next frame\n";
 
         vector<vector<Point> > contoursToDraw;
-
 
         //if a tracked contour can't be found after a certain number of
         //frames,  it is kicked out
@@ -379,20 +418,6 @@ int main( int argc,  char **argv )
             ++it;
         }
 
-        //Draw the tracked contours for that frame
-        for(  size_t i=0; i<tracked.size( ); i++ )
-        {
-            if( tracked[i].nomatch==0 )
-            {
-                vector<vector<Point> > contoursToDraw;
-                objectToContours( &tracked, &contoursToDraw ); 	
-                if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
-            }
-        }
-
-        namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
-        imshow( "Contour Tracking", image );
-        waitKey( 25 );
-        vidout << image;
+        displayContours( image2, tracked, vidout, colors );
 	}
 }
