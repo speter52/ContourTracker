@@ -5,7 +5,7 @@
 #include <vector>
 using namespace std;
 using namespace cv;
-#define ARC_PREVDEL_SIZE 1024            /*  */
+#define ARC_PREVDEL_SIZE 8192           /*  */
 class Contour{
 	public: 
 		vector<Point> contour;

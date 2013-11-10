@@ -37,6 +37,8 @@ using namespace cv;
 #define ARC_DEFAULT_AREA 2000            /* Maximum area difference */
 #define ARC_DEFAULT_MISCOUNT 40          /* Max frames without match */
 
+/* Energy mimization params */
+#define ARC_ENERGY_D 5            /* size of contour increment in pixels */
 void matchContours ( Mat image, Contour& con, 
         vector<Contour>& newContours );
 void displayContours ( Mat image, vector<Contour> tracked,
@@ -51,6 +53,7 @@ void getContours( Mat image,  vector<Contour>  *contours );
 double centroidTest ( Moments& trackedMom, Moments& newMom );
 double huMomentsTest ( Moments& trackedMom, Moments& newMom );
 void flow( Mat prev_image, Mat image, vector<Contour>& tracked );
+void minimize_energy ( Mat image, Point center );
         
 
 #endif   // ----- #ifndef ContourTracker_INC  ----- 

@@ -13,6 +13,141 @@ double mahalanobisThreshold = ARC_DEFAULT_MAHALANOBOIS;
 int miscountThreshold = ARC_DEFAULT_MISCOUNT; //TODO: decide on a threshold to track between frames
 int verbosity;
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  diff_color
+ *  Description:  
+ * =====================================================================================
+ */
+    double
+diff_color ( Mat image, vector<Point>& snake, Scalar c )
+{
+    double d;
+    d=0;
+    // mask the image with the contour.
+    // subtract color from each element.
+    // sum all elements.
+    return d;
+}		/* -----  end of function diff_color  ----- */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  expand_normal
+ *  Description:  
+ * =====================================================================================
+ */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  setup_contour
+ *  Description:  Creates an N point contour of radius L around the center.
+ * =====================================================================================
+ */
+    void
+setup_contour ( vector<Point>& snake, Point center, int N, int L )
+{
+    Mat mags, angles, x, y;
+    double dw;
+
+    dw = 2* M_PI/N; 
+    mags = L * Mat::ones(N,1, CV_32F);
+
+    angles = Mat::zeros(N,1, CV_32F);
+    for( int i=0; i<N; ++i ) angles.at<float>(i,0) = dw*i;
+    polarToCart( mags, angles, x, y, false );
+    for( int i=0; i<N; ++i )
+    {
+        Point newpt(x.at<float>(i,0), y.at<float>(i,0));
+        snake.push_back( newpt );
+    }
+    
+    return;
+}		/* -----  end of function setup_contour  ----- */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  minimize_energy
+ *  Description:  Seeks a contour that minimizes energy. Seeks to maximize area
+ *  of green contours.
+ *  =====================================================================================
+ */
+    void
+minimize_energy ( Mat image, Point center )
+{
+    Mat image_copy;
+    Scalar green;
+    Point dc;
+    double E;
+    int N, L;
+    vector<Point> snake;
+
+    E=10000;
+    N=4; /* initial number of points in contour */
+    L=5; /* magnitude of increment in pixels */
+    //green = Scalar(0, 128, 0); /* target color */
+
+    // setup initial N point contour
+    setup_contour(snake, center, N, L);
+
+    while( 1 )
+    {
+        vector<vector<Point> > contours;
+        vector<Point> snake_copy;
+        snake_copy = snake;
+        Matx22f rot90(0, -1, 
+                       1, 0);
+        vector<Point>::iterator pt_cpy=snake_copy.begin();
+        for( vector<Point>::iterator pt=snake.begin();
+                pt!=snake.end(); ++pt, ++pt_cpy )
+        {
+            //double area;
+            double Enew;
+            Point old = *pt;
+            // move point normal to contour
+            Vec2f prev, next, diff, orthvec;
+            if( pt==snake.begin() )
+            {
+                prev = (Mat)*( snake_copy.end()-1 );
+            }
+            else
+            {
+                prev = (Mat)*(pt_cpy-1);
+            }
+            if( pt==snake.end()-1 )
+            {
+                next = (Mat)*( snake_copy.begin() );
+            }
+            else
+            {
+                next = (Mat)*(pt_cpy+1);
+            }
+
+            diff = prev - next;
+            orthvec = rot90 * diff;
+            // norm the vector then multiply it by target magnitude.
+            orthvec = L * orthvec/norm(orthvec);
+
+            // Update point
+            *pt=*pt+(Point) orthvec;
+            // measure energy
+            Enew = 0;
+            if( Enew>E )
+            {
+                *pt = old;
+            }
+            //area = contourArea( snake );
+            //diff_color( image, snake, green );
+            contours.push_back(snake);
+            image_copy = image.clone();
+            drawContours( image_copy, contours, 0, Scalar(128,0,128), 1, 8, noArray( ), 0, Point( ));
+            imshow("Contour Tracking", image_copy);
+            waitKey(0);
+        }
+        // interpolate new points
+    }
+    return ;
+}		/* -----  end of function minimize_energy  ----- */
 //Converts vector<Contour> to vector<vector<Point> > which can then be passed
 //into functions like drawContours
 void objectToContours( vector<Contour> *contours,  vector<vector<Point> >
@@ -224,6 +359,7 @@ void flow( Mat prev_image, Mat image, vector<Contour>& tracked )
             *pt += pd[j];
         }
         tr->prevdel = pd;
+        tr->contour = con;
     }
 }
 
@@ -416,56 +552,26 @@ int main( int argc,  char **argv )
     for( vector<String>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
-        vector<Contour> newContours;
-        Mat image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
+        Mat image, image2;
+        image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
+        image2 = image.clone();
+
         if(  !image.data )
         {
             cout << "Cannot load image." << endl;
             exit(  EXIT_FAILURE );
         }
-        Mat image2 = image.clone();
-
-        if( tracked.size( )==0 )
-        {
-			waitKey( 0 );
-			getContours(image,&tracked);
-    	}	
-
-        if( verbosity==ARC_VERBOSE ) cout << "Tracked contours size: " << tracked.size( )<<endl;
-        getContours( image, &newContours );
-        if( verbosity==ARC_VERBOSE ) cout << "New contours size: " << newContours.size( )<<endl;
-
-        //flow( prev_image, image, tracked );
-        //Every tracked contour is checked against every new contour to see if there is a match
         for( vector<Contour>::iterator con=tracked.begin();
                 con!=tracked.end(); ++con )
         {
-			Rect trackedRect = boundingRect(con->contour);
-			Mat trackedImage = image2(trackedRect);
-            con->nomatch++; // increment here, because it will go to zero if match found.
-			
-            matchContours( image, *con, newContours );
+            Moments trackedMom;
+            Point center;
 
-            if( verbosity==ARC_VERBOSE ) cout << "Going to next tracked contour\n";
+            trackedMom = moments(con->contour,false);
+            center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
+            minimize_energy(image, center);
+            circle(image2, center, 2, colors[1], 2 );
         }
-
-        if( verbosity==ARC_VERBOSE ) cout << "Going to next frame\n";
-
-        vector<vector<Point> > contoursToDraw;
-
-        //if a tracked contour can't be found after a certain number of
-        //frames,  it is kicked out
-        vector<Contour>::iterator it=tracked.begin();
-        while( it!=tracked.end() )
-        {
-            if( it->nomatch>=miscountThreshold )
-            {
-                it=tracked.erase( it );
-                continue;
-            }
-            ++it;
-        }
-
         displayContours( image2, tracked, vidout, colors );
         prev_image = image.clone();
 	}
