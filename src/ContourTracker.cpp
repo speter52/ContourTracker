@@ -24,9 +24,30 @@ int verbosity;
 diff_color ( Mat image, vector<Point>& snake, Scalar c )
 {
     double d;
-    d=0;
+    Mat mask, masked_contour ;
+    Scalar sumS;
+    vector<vector<Point> > contours;
+
+    contours.push_back( snake );
     // mask the image with the contour.
+    mask= Mat::zeros(image.size(), CV_8UC1 );
+    cout << "color: " << c << endl;
+    drawContours(mask, contours, -1, Scalar(255,255,255), CV_FILLED );
+    masked_contour = Mat( image.size(), CV_8UC3 );
+    masked_contour.setTo(c);
+    image.copyTo(masked_contour, mask);
+    //imshow("Contour Tracking", masked_contour );
+    //waitKey(0);
     // subtract color from each element.
+    subtract( masked_contour, c, masked_contour);
+    
+    sumS = sum(masked_contour);
+
+    cout << "sum: " << sumS << endl;
+    d = sumS[0] + sumS[1] + sumS[2];
+    //imshow("Contour Tracking", masked_contour );
+    //waitKey(0);
+
     // sum all elements.
     return d;
 }		/* -----  end of function diff_color  ----- */
@@ -78,16 +99,17 @@ minimize_energy ( Mat image, Point center )
     Mat image_copy;
     Scalar green;
     Point dc;
+    int area;
     double E;
     int N, L;
     size_t maxN;
     vector<Point> snake;
 
     E=10000;
-    maxN=128;
+    maxN=32;
     N=4; /* initial number of points in contour */
-    L=32; /* magnitude of increment in pixels */
-    //green = Scalar(0, 128, 0); /* target color */
+    L=4; /* magnitude of increment in pixels */
+    green = Scalar(0, 255, 0); /* target color */
 
     // setup initial N point contour
     setup_contour(snake, center, N, L);
@@ -133,17 +155,20 @@ minimize_energy ( Mat image, Point center )
             // Update point
             *pt=*pt+(Point) orthvec;
             // measure energy
-            Enew = 0;
+            area = contourArea( snake );
+            Enew = diff_color( image, snake, green )/area;
             if( Enew>E )
             {
                 *pt = old;
             }
-            //area = contourArea( snake );
-            //diff_color( image, snake, green );
+            else
+            {
+                E = Enew;
+            }
             contours.push_back(snake);
         }
         image_copy = image.clone();
-        drawContours( image_copy, contours, 0, Scalar(128,0,128), 1, 8, noArray( ), 0, Point( ));
+        drawContours( image_copy, contours, 0, Scalar(128,0,255), 2, 8, noArray( ), 0, Point( ));
         imshow("Contour Tracking", image_copy);
         waitKey(0);
         // interpolate new points up to maxN
