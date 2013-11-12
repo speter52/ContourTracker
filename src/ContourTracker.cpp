@@ -59,7 +59,7 @@ setup_contour ( vector<Point>& snake, Point center, int N, int L )
     for( int i=0; i<N; ++i )
     {
         Point newpt(x.at<float>(i,0), y.at<float>(i,0));
-        snake.push_back( newpt );
+        snake.push_back( center + newpt );
     }
     
     return;
@@ -80,11 +80,13 @@ minimize_energy ( Mat image, Point center )
     Point dc;
     double E;
     int N, L;
+    size_t maxN;
     vector<Point> snake;
 
     E=10000;
+    maxN=128;
     N=4; /* initial number of points in contour */
-    L=5; /* magnitude of increment in pixels */
+    L=32; /* magnitude of increment in pixels */
     //green = Scalar(0, 128, 0); /* target color */
 
     // setup initial N point contour
@@ -96,7 +98,7 @@ minimize_energy ( Mat image, Point center )
         vector<Point> snake_copy;
         snake_copy = snake;
         Matx22f rot90(0, -1, 
-                       1, 0);
+                      1, 0);
         vector<Point>::iterator pt_cpy=snake_copy.begin();
         for( vector<Point>::iterator pt=snake.begin();
                 pt!=snake.end(); ++pt, ++pt_cpy )
@@ -139,12 +141,38 @@ minimize_energy ( Mat image, Point center )
             //area = contourArea( snake );
             //diff_color( image, snake, green );
             contours.push_back(snake);
-            image_copy = image.clone();
-            drawContours( image_copy, contours, 0, Scalar(128,0,128), 1, 8, noArray( ), 0, Point( ));
-            imshow("Contour Tracking", image_copy);
-            waitKey(0);
         }
-        // interpolate new points
+        image_copy = image.clone();
+        drawContours( image_copy, contours, 0, Scalar(128,0,128), 1, 8, noArray( ), 0, Point( ));
+        imshow("Contour Tracking", image_copy);
+        waitKey(0);
+        // interpolate new points up to maxN
+
+        if( 2*snake.size()<maxN )
+        {
+            vector<Point> snake2N ( 2*snake.size() );
+            int i=0;
+            for( vector<Point>::iterator pt=snake.begin();
+                    pt!=snake.end(); ++i, ++pt )
+            {
+                Vec2f cur, next, mid;
+                cur = (Mat) *pt;
+                if( pt==snake.end() -1 )
+                {
+                    next=(Mat) *snake.begin();
+                }
+                else
+                {
+                    next=(Mat) *(pt+1);
+                }
+                mid = 0.5*(cur+next);
+                cout << "Pt: " << *pt << endl;
+                cout << "Mid: " << (Point)mid << endl;
+                snake2N[i] = *pt;
+                snake2N[++i] = (Point) mid;
+            }
+            snake = snake2N;
+        }
     }
     return ;
 }		/* -----  end of function minimize_energy  ----- */
