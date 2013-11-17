@@ -16,6 +16,80 @@ int verbosity;
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:  measureSobel
+ *  Description:  
+ * =====================================================================================
+ */
+    double
+measureSobel ( Mat image, vector<Point>& snake )
+{
+    Mat masked_contour, masked_bw;
+    Mat full_hann, hann, windowed;
+    Mat sobel_mat, sobel_mat_x, sobel_mat_y;
+    Mat abs_sobel_mat_x, abs_sobel_mat_y;
+    Rect snake_rect, image_rect;
+    Scalar sobel_mean;
+    vector<vector<Point> > contours;
+
+    // Make a hanning window
+    image_rect = Rect(Point(0,0), image.size());
+    snake_rect = boundingRect( snake ) & image_rect;
+    full_hann = Mat(image.size(), CV_32F, Scalar(0,0,0,0) );
+    hann = full_hann( snake_rect );
+    createHanningWindow( hann, snake_rect.size(), CV_32F );
+    // Mask our contour
+    masked_contour = maskImage( image, snake, Scalar(0, 0, 0, 0) );
+    cvtColor( masked_contour, masked_bw, CV_BGR2GRAY );
+
+    // Window the mask
+    multiply( masked_bw, full_hann, windowed, 1, CV_8U );
+    Sobel( windowed, sobel_mat_x, CV_16S, 1, 0, 3 );
+    Sobel( windowed, sobel_mat_y, CV_16S, 0, 1, 3 );
+
+    convertScaleAbs( sobel_mat_x, abs_sobel_mat_x );
+    convertScaleAbs( sobel_mat_y, abs_sobel_mat_y );
+    sobel_mat = 0.5 * abs_sobel_mat_x + 0.5 * abs_sobel_mat_y;
+    Canny( windowed, sobel_mat, 100, 200, 3 );
+    contours.push_back(snake);
+    drawContours(sobel_mat, contours, 0, Scalar(0,0,0), 3 );
+    sobel_mean = mean(sobel_mat, masked_bw);
+    if( verbosity==ARC_VERBOSE ) cout << "Sobel mean: " << sobel_mean << endl;
+
+    /*
+    imshow("Contour Tracking", sobel_mat );
+    waitKey(0);
+    */
+    return sobel_mean[0];
+}		/* -----  end of function measureSobel  ----- */
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  maskImage
+ *  Description:  
+ * =====================================================================================
+ */
+    Mat
+maskImage ( Mat image, vector<Point>& snake, Scalar c )
+{
+    Mat mask, masked_contour ;
+    vector<vector<Point> > contours;
+
+    contours.push_back( snake );
+    // mask the image with the contour.
+    mask= Mat::zeros(image.size(), CV_8UC1 );
+    drawContours(mask, contours, -1, Scalar(255,255,255), CV_FILLED );
+    masked_contour = Mat( image.size(), CV_8UC3 );
+    if( c!=Scalar(-1,-1,-1,-1) )
+    {
+        masked_contour.setTo(c);
+    }
+    image.copyTo(masked_contour, mask);
+    return masked_contour;
+}		/* -----  end of function maskImage  ----- */
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:  diff_color
  *  Description:  
  * =====================================================================================
@@ -24,18 +98,9 @@ int verbosity;
 diff_color ( Mat image, vector<Point>& snake, Scalar c )
 {
     double d;
-    Mat mask, masked_contour ;
     Scalar sumS;
-    vector<vector<Point> > contours;
-
-    contours.push_back( snake );
-    // mask the image with the contour.
-    mask= Mat::zeros(image.size(), CV_8UC1 );
-    cout << "color: " << c << endl;
-    drawContours(mask, contours, -1, Scalar(255,255,255), CV_FILLED );
-    masked_contour = Mat( image.size(), CV_8UC3 );
-    masked_contour.setTo(c);
-    image.copyTo(masked_contour, mask);
+    Mat masked_contour;
+    masked_contour = maskImage( image, snake, c );
     //imshow("Contour Tracking", masked_contour );
     //waitKey(0);
     // subtract color from each element.
@@ -43,7 +108,7 @@ diff_color ( Mat image, vector<Point>& snake, Scalar c )
     
     sumS = sum(masked_contour);
 
-    cout << "sum: " << sumS << endl;
+    if( verbosity==ARC_VERBOSE ) cout << "sum: " << sumS << endl;
     d = sumS[0] + sumS[1] + sumS[2];
     //imshow("Contour Tracking", masked_contour );
     //waitKey(0);
@@ -51,13 +116,6 @@ diff_color ( Mat image, vector<Point>& snake, Scalar c )
     // sum all elements.
     return d;
 }		/* -----  end of function diff_color  ----- */
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  expand_normal
- *  Description:  
- * =====================================================================================
- */
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -94,28 +152,37 @@ setup_contour ( vector<Point>& snake, Point center, int N, int L )
  *  =====================================================================================
  */
     void
-minimize_energy ( Mat image, Point center )
+minimize_energy ( Mat image, Point center, vector<Point>& contour )
 {
     Mat image_copy;
     Scalar green;
     Point dc;
+    //Moments trackedMom;
+    bool converged;
     int area;
     double E;
     int N, L;
-    size_t maxN;
+    int iter;
+    //size_t maxN;
     vector<Point> snake;
 
+    converged=false;
     E=10000;
-    maxN=32;
+    //maxN=32;
     N=4; /* initial number of points in contour */
     L=4; /* magnitude of increment in pixels */
     green = Scalar(0, 255, 0); /* target color */
 
-    // setup initial N point contour
-    setup_contour(snake, center, N, L);
+    //trackedMom = moments( contour, false );
 
-    while( 1 )
+    // setup initial N point contour
+    setup_contour(snake, center, N, 4*L);
+
+    iter=0;
+    while( converged==false && iter<16 )
     {
+        ++iter;
+        converged=true;
         vector<vector<Point> > contours;
         vector<Point> snake_copy;
         snake_copy = snake;
@@ -125,9 +192,14 @@ minimize_energy ( Mat image, Point center )
         for( vector<Point>::iterator pt=snake.begin();
                 pt!=snake.end(); ++pt, ++pt_cpy )
         {
-            //double area;
+            //Moments newMom;
+            //double mahalanobois;
+
             double Enew;
+            double sobel;
+
             Point old = *pt;
+
             // move point normal to contour
             Vec2f prev, next, diff, orthvec;
             if( pt==snake.begin() )
@@ -156,7 +228,23 @@ minimize_energy ( Mat image, Point center )
             *pt=*pt+(Point) orthvec;
             // measure energy
             area = contourArea( snake );
-            Enew = diff_color( image, snake, green )/area;
+            sobel = measureSobel( image, snake );
+
+            //newMom = moments( snake, false );
+            //mahalanobois = huMomentsTest( trackedMom, newMom );
+            /*
+            double mahalmult = 2;
+            double sobelmult = 1;
+            double areamult = 4096;
+            cout << "Mahal dist: " << mahalmult*mahalanobois << endl;
+            cout << "Sobel: " << sobelmult*sobel << endl;
+            cout << "area: " << area << endl;
+            */
+
+
+            Enew = pow(sobel,1)/pow(area,1);
+            //Enew = areamult*(1.0/area) + sobelmult*sobel + mahalmult*mahalanobois;
+            cout << "Enew: " << Enew << " Eold: " << E << endl;
             if( Enew>E )
             {
                 *pt = old;
@@ -164,16 +252,14 @@ minimize_energy ( Mat image, Point center )
             else
             {
                 E = Enew;
+                converged=false;
             }
             contours.push_back(snake);
         }
-        image_copy = image.clone();
-        drawContours( image_copy, contours, 0, Scalar(128,0,255), 2, 8, noArray( ), 0, Point( ));
-        imshow("Contour Tracking", image_copy);
-        waitKey(0);
         // interpolate new points up to maxN
 
-        if( 2*snake.size()<maxN )
+        cout << "Sz: " << 2*snake.size() << endl;
+        if( 2*snake.size()<(size_t)(sqrt(contourArea(snake))/4) )
         {
             vector<Point> snake2N ( 2*snake.size() );
             int i=0;
@@ -191,16 +277,20 @@ minimize_energy ( Mat image, Point center )
                     next=(Mat) *(pt+1);
                 }
                 mid = 0.5*(cur+next);
-                cout << "Pt: " << *pt << endl;
-                cout << "Mid: " << (Point)mid << endl;
                 snake2N[i] = *pt;
                 snake2N[++i] = (Point) mid;
             }
             snake = snake2N;
         }
     }
+    //image_copy = image.clone();
+    //drawContours( image_copy, contours, 0, Scalar(128,0,255), 2, 8, noArray( ), 0, Point( ));
+    //imshow("Contour Tracking", image_copy);
+    //waitKey(0);
+    contour = snake;
     return ;
 }		/* -----  end of function minimize_energy  ----- */
+
 //Converts vector<Contour> to vector<vector<Point> > which can then be passed
 //into functions like drawContours
 void objectToContours( vector<Contour> *contours,  vector<vector<Point> >
@@ -254,7 +344,7 @@ displayContours ( Mat image, vector<Contour> tracked, VideoWriter vidout, vector
     {
         if( tracked[i].nomatch==0 )
         {
-            if( i<4 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
+            if( i<1 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
         }
     }
 
@@ -585,6 +675,7 @@ int main( int argc,  char **argv )
 	//Find initial contours to track on first image.
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
 	getContours( firstFrame, &tracked ); //finds contours and stores them in tracked
+    cout << "size tracked: " << tracked.size() << endl;
 	for( size_t i=0; i<1; i++ )
     {
 		vector<vector<Point> > temp;
@@ -619,11 +710,15 @@ int main( int argc,  char **argv )
         {
             Moments trackedMom;
             Point center;
+            vector<vector<Point> > s;
 
             trackedMom = moments(con->contour,false);
             center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
-            minimize_energy(image, center);
-            circle(image2, center, 2, colors[1], 2 );
+            minimize_energy(image, center, con->contour );
+            s.push_back( con->contour );
+            //drawContours( image2, s, 0, colors[0], 2, 8, noArray( ), 0, Point( )); //draws contour
+            //circle(image2, center, 2, colors[1], 2 );
+            break; // We only want to track one contour for now
         }
         displayContours( image2, tracked, vidout, colors );
         prev_image = image.clone();

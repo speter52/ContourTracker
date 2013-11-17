@@ -39,6 +39,9 @@ using namespace cv;
 
 /* Energy mimization params */
 #define ARC_ENERGY_D 5            /* size of contour increment in pixels */
+#define ARC_SOBEL_MULT 1        /* sobel mean multiplier */
+Mat maskImage ( Mat image, vector<Point>& snake, Scalar c );
+
 void matchContours ( Mat image, Contour& con, 
         vector<Contour>& newContours );
 void displayContours ( Mat image, vector<Contour> tracked,
