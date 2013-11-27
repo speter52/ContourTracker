@@ -2,10 +2,13 @@
 //Contour Tracker
 //7-10-14
 #include "ContourTracker.hpp"
+#include "ARC_Snake.hpp"
 
+#define ARC_DEBUG            /*  */
 using namespace std;
 using namespace cv;
 
+#ifndef ARC_DEBUG
 // GLOBALS
 int areaThreshold = ARC_DEFAULT_AREA; //used 2000 and .13 for match
 double distanceThreshold = ARC_DEFAULT_DISTANCE;
@@ -724,3 +727,63 @@ int main( int argc,  char **argv )
         prev_image = image.clone();
 	}
 }
+
+#else
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  main
+ *  Description:  Debugging main
+ * =====================================================================================
+ */
+int main ( int argc, char *argv[] )
+{
+    Mat image;
+    Point ctr;
+    Point cp;
+
+    ctr = Point(240,320);
+    ARC_Snake m(ctr);
+    namedWindow("snake");
+    while( 1 )
+    {
+        image = Mat(480, 640, CV_8UC3);
+        char c;
+        c = (char) waitKey( 10 );
+        if( c == 27 )
+            break;
+        switch( c )
+        {
+        case 'n':
+            cout << "next point" << endl;
+            m.next_point();
+            break;
+        case 'p':
+            cout << "prev point" << endl;
+            m.prev_point();
+            break;
+        case 'x':
+            cout << "expand" << endl;
+            m.expand(4);
+            break;
+        case 'c':
+            cout << "contract" << endl;
+            m.contract(4);
+            break;
+        case 'i':
+            cout << "interpolate" << endl;
+            m.interpolate();
+        default:
+            ;
+        }
+        vector<vector<Point> > conts;
+        m.get_contour(conts);
+        drawContours( image, conts, 0, Scalar(0,255,0) );
+        cp = m.get_point();
+        circle( image, cp, 2, Scalar(255, 0, 0), 3 );
+        imshow( "snake", image );
+    }
+    return EXIT_SUCCESS;
+}				/* ----------  end of function main  ---------- */
+#endif

@@ -18,6 +18,9 @@
  * =====================================================================================
  */
 
+#ifndef  ARC_Snake_INC
+#define  ARC_Snake_INC
+
 #include <iostream>
 #include <cv.h>
 #include <opencv2/core/core.hpp>
@@ -34,7 +37,6 @@ using namespace cv;
  *  Description:  Class for storing a snake contour and measuring its energy.
  * =====================================================================================
  */
-template < class T >
 class ARC_Snake
 {
     public:
@@ -44,12 +46,17 @@ class ARC_Snake
 
         /* ====================  ACCESSORS     ======================================= */
         bool next_point();
-        Point get_next_point();
-        Point get_prev_point();
-        Point expand();
-        Point contract();
+        bool prev_point();
+        Point get_point()
+        {
+            return *it;
+        }
+        void get_contour( vector<vector<Point> >& cons );
 
         /* ====================  MUTATORS      ======================================= */
+        void expand( int L );
+        void contract( int L);
+        int interpolate();
 
         /* ====================  OPERATORS     ======================================= */
         double energy( Mat img );
@@ -66,6 +73,9 @@ class ARC_Snake
 
     private:
         /* ====================  METHODS       ======================================= */
+        Point get_orthvec();
+        Point get_next_point();
+        Point get_prev_point();
         void init_contour( Point center, vector<Point>& snake, int L, int N );
 
         /* ====================  DATA MEMBERS  ======================================= */
@@ -73,3 +83,4 @@ class ARC_Snake
         vector<Point>::iterator it;
 
 }; /* ----------  end of template class Snake  ---------- */
+#endif   /* ----- #ifndef ARC_Snake_INC  ----- */
