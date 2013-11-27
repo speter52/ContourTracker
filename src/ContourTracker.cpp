@@ -746,6 +746,12 @@ int main ( int argc, char *argv[] )
     ctr = Point(240,320);
     ARC_Snake m(ctr);
     namedWindow("snake");
+    cout << "ARC_Snake debug: " << endl
+         << "n - next point" << endl
+         << "p - previous point" << endl
+         << "x - expand at point" << endl
+         << "c - contract at point" << endl
+         << "i - interpolate new points (if possible)" << endl;
     while( 1 )
     {
         image = Mat(480, 640, CV_8UC3);
@@ -756,23 +762,18 @@ int main ( int argc, char *argv[] )
         switch( c )
         {
         case 'n':
-            cout << "next point" << endl;
             m.next_point();
             break;
         case 'p':
-            cout << "prev point" << endl;
             m.prev_point();
             break;
         case 'x':
-            cout << "expand" << endl;
             m.expand(4);
             break;
         case 'c':
-            cout << "contract" << endl;
             m.contract(4);
             break;
         case 'i':
-            cout << "interpolate" << endl;
             m.interpolate();
         default:
             ;
