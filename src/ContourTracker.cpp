@@ -662,6 +662,38 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
     return distance;
 }		/* -----  end of function centroidTest  ----- */
 
+
+/* 
+ * ===  FUNCTION  ========================================================================
+ *         Name: getUserPoints 
+ *  Description:  Asks user to select points and stores it in the vector that's passed in.
+ * =======================================================================================
+ */
+void getUserPoints(Mat image, vector<Point> & points)
+{
+	namedWindow("Select Points - Then Press Any Key",CV_WINDOW_AUTOSIZE);
+	setMouseCallback("Select Points - Then Press Any Key", getPointsFromMouse, &points);
+	imshow("Select Points - Then Press Any Key",image);
+	waitKey(0);
+	destroyWindow("Select Points - Then Press Any Key");
+}
+
+/* 
+ * ===  FUNCTION  ========================================================================
+ *         Name: onMouse 
+ *  Description:  Mouse callback function that retrieves user selected points.
+ * =======================================================================================
+ */
+void getPointsFromMouse(int event, int x, int y, int flags, void* points)
+{
+	if(event==EVENT_LBUTTONDOWN)
+	{
+		cout<<"Point added";
+		vector<Point>* userpts = (vector<Point>*)(points);	
+		userpts->push_back(Point(x,y));
+	}
+}
+	
 int main( int argc,  char **argv )
 {
     Mat prev_image;
@@ -674,6 +706,21 @@ int main( int argc,  char **argv )
 
 	//Find initial contours to track on first image.
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
+
+///////////////////////////Added to display user selected points/////////////////////////////////////////
+	vector<Point> userPoints;
+	getUserPoints(firstFrame,userPoints);
+	Mat imageCopy = firstFrame.clone();
+	for(size_t i=0;i<userPoints.size();i++)
+	{
+		circle(imageCopy, userPoints[i], 2, Scalar(255,0,0), 2 );
+	}
+	namedWindow("User Selected Points",CV_WINDOW_AUTOSIZE);
+	imshow("User Selected Points",imageCopy);
+	waitKey(0);
+	destroyWindow("User Selected Points");
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	getContours( firstFrame, &tracked ); //finds contours and stores them in tracked
     cout << "size tracked: " << tracked.size() << endl;
 	for( size_t i=0; i<1; i++ )
@@ -693,7 +740,7 @@ int main( int argc,  char **argv )
     prev_image=firstFrame.clone();
 
 	//Begin image loop
-    for( vector<String>::iterator im=images.begin();
+    for( vector<string>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
         Mat image, image2;
