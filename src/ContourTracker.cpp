@@ -4,7 +4,7 @@
 #include "ContourTracker.hpp"
 #include "ARC_Snake.hpp"
 
-#define ARC_DEBUG            /*  */
+//#define ARC_DEBUG            /*  */
 using namespace std;
 using namespace cv;
 
@@ -91,34 +91,6 @@ maskImage ( Mat image, vector<Point>& snake, Scalar c )
     return masked_contour;
 }		/* -----  end of function maskImage  ----- */
 
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  diff_color
- *  Description:  
- * =====================================================================================
- */
-    double
-diff_color ( Mat image, vector<Point>& snake, Scalar c )
-{
-    double d;
-    Scalar sumS;
-    Mat masked_contour;
-    masked_contour = maskImage( image, snake, c );
-    //imshow("Contour Tracking", masked_contour );
-    //waitKey(0);
-    // subtract color from each element.
-    subtract( masked_contour, c, masked_contour);
-    
-    sumS = sum(masked_contour);
-
-    if( verbosity==ARC_VERBOSE ) cout << "sum: " << sumS << endl;
-    d = sumS[0] + sumS[1] + sumS[2];
-    //imshow("Contour Tracking", masked_contour );
-    //waitKey(0);
-
-    // sum all elements.
-    return d;
-}		/* -----  end of function diff_color  ----- */
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -182,7 +154,7 @@ minimize_energy ( Mat image, Point center, vector<Point>& contour )
     setup_contour(snake, center, N, 4*L);
 
     iter=0;
-    while( converged==false && iter<16 )
+    while( converged==false && iter<3 )
     {
         ++iter;
         converged=true;
@@ -338,16 +310,20 @@ void getImageList( string filename,  vector<string>* il )
  * =====================================================================================
  */
     void
-displayContours ( Mat image, vector<Contour> tracked, VideoWriter vidout, vector<Scalar> colors )
+displayContours ( Mat image, vector<ARC_Snake> snakes, VideoWriter vidout, vector<Scalar> colors )
 {
     //Draw the tracked contours for that frame
-    vector<vector<Point> > contoursToDraw;
-    objectToContours( &tracked, &contoursToDraw ); 	
-    for(  size_t i=0; i<tracked.size( ); i++ )
+    for(  size_t i=0; i<snakes.size( ); i++ )
     {
-        if( tracked[i].nomatch==0 )
+        Point cp;
+        vector<vector<Point> >  temp;
+        snakes[i].get_contour( temp );
+        cp = snakes[i].get_point();
+
+        if( i<1 )	
         {
-            if( i<1 )	drawContours( image, contoursToDraw, i, colors[i], 1, 8, noArray( ), 0, Point( ));
+            drawContours( image, temp, 0, colors[i], 1, 8, noArray( ), 0, Point( ));
+            circle( image, cp, 2, Scalar(255, 0, 0), 3 );
         }
     }
 
@@ -437,7 +413,7 @@ matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
  *  Description:  Finds good contours in given frame, adds them to the list of contours.
  * =====================================================================================
  */
-void getContours( Mat image,  vector<Contour>  *contours )
+void getContours( Mat image,  vector<ARC_Snake>  *snakes )
 {
     Mat imageGray, cannyImage;
     vector<vector<Point> > foundContours;
@@ -457,7 +433,12 @@ void getContours( Mat image,  vector<Contour>  *contours )
     {
         if( contourArea(*con)>ARC_MIN_AREA )
         {
-            contours->push_back( Contour(*con) );
+            Moments trackedMom;
+            Point center;
+
+            trackedMom = moments( *con, false );
+            center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
+            snakes->push_back( ARC_Snake(center) );
         }
     }
 }
@@ -671,23 +652,23 @@ int main( int argc,  char **argv )
     vector<Scalar> colors;
 	vector<string> images;
 	VideoWriter vidout;
-	vector<Contour> tracked; //vector to store contours that are tracked between frames
+	vector<ARC_Snake> snakes; //vector to store contours that are tracked between frames
 
     init( argc, argv, images, vidout, colors );
 
 	//Find initial contours to track on first image.
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
-	getContours( firstFrame, &tracked ); //finds contours and stores them in tracked
-    cout << "size tracked: " << tracked.size() << endl;
+	getContours( firstFrame, &snakes ); //finds contours and stores them in tracked
+    cout << "size tracked: " << snakes.size() << endl;
 	for( size_t i=0; i<1; i++ )
     {
 		vector<vector<Point> > temp;
-		objectToContours( &tracked, &temp );
-		drawContours( firstFrame, temp, i, colors[i], 1, 8, noArray( ), 0, Point( )); //draws first image
+		snakes[i].get_contour( temp );
+		drawContours( firstFrame, temp, 0, colors[i], 1, 8, noArray( ), 0, Point( )); //draws first image
 	}
     if( verbosity==ARC_VERBOSE )
     {
-        cout << "Original tracked size: " << tracked.size( ) <<endl;
+        cout << "Original tracked size: " << snakes.size( ) <<endl;
         namedWindow( "Contour Tracking", CV_WINDOW_AUTOSIZE );
     }
 	imshow( "Contour Tracking", firstFrame );
@@ -708,22 +689,54 @@ int main( int argc,  char **argv )
             cout << "Cannot load image." << endl;
             exit(  EXIT_FAILURE );
         }
-        for( vector<Contour>::iterator con=tracked.begin();
-                con!=tracked.end(); ++con )
+        for( vector<ARC_Snake>::iterator snake=snakes.begin();
+                snake!=snakes.end(); ++snake )
         {
-            Moments trackedMom;
-            Point center;
-            vector<vector<Point> > s;
+            double energy, expand_energy, contract_energy;
+            bool converged;
+            unsigned int iter;
+            // TODO: not sure why, but iterator broken until we do this.
+            do
+            {
+                ;
+            } while( snake->next_point() );
+            energy = snake->energy(image);
 
-            trackedMom = moments(con->contour,false);
-            center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
-            minimize_energy(image, center, con->contour );
-            s.push_back( con->contour );
+            converged=false;
+            iter=0;
+            while( converged==false && iter<16 )
+            {
+                ++iter;
+                converged =true;
+                do
+                {
+                    snake->expand(6);
+                    expand_energy = snake->energy( image );
+                    snake->contract(12);
+                    contract_energy = snake->energy( image );
+                    if( contract_energy < energy && contract_energy< expand_energy )
+                    {
+                        energy = contract_energy;
+                        converged=false;
+                    }
+                    else if( expand_energy < energy )
+                    {
+                        snake->expand( 12 );
+                        energy = expand_energy;
+                        converged=false;
+                    }
+                    else
+                    {
+                        snake->expand(6);
+                    }
+                } while( snake->next_point() );
+            }
+            snake->interpolate();
             //drawContours( image2, s, 0, colors[0], 2, 8, noArray( ), 0, Point( )); //draws contour
             //circle(image2, center, 2, colors[1], 2 );
             break; // We only want to track one contour for now
         }
-        displayContours( image2, tracked, vidout, colors );
+        displayContours( image2, snakes, vidout, colors );
         prev_image = image.clone();
 	}
 }

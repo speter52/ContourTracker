@@ -43,6 +43,8 @@ class ARC_Snake
         /* ====================  LIFECYCLE     ======================================= */
         ARC_Snake ( vector<Point>& con);                             /* constructor */
         ARC_Snake ( Point center );             /* constructor */
+        ARC_Snake ( const ARC_Snake & a );             /* constructor */
+        
 
         /* ====================  ACCESSORS     ======================================= */
         bool next_point();
@@ -77,6 +79,9 @@ class ARC_Snake
         Point get_next_point();
         Point get_prev_point();
         void init_contour( Point center, vector<Point>& snake, int L, int N );
+        double diff_color ( Mat image, Scalar c );
+        Mat maskImage ( Mat image, Scalar c );
+        double measureCanny ( Mat image );
 
         /* ====================  DATA MEMBERS  ======================================= */
         vector<Point> contour;

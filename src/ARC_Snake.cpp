@@ -42,12 +42,18 @@ ARC_Snake::ARC_Snake ( vector<Point>& con )
 ARC_Snake::ARC_Snake ( Point center )
 {
     int L, N;
-    L = 8;
+    L = 16;
     N = 4;
     init_contour( center, contour, L, N );
     it = contour.begin();
 }  /* -----  end of method ARC_Snake::ARC_Snake  (constructor)  ----- */
 
+/* Copy constructor */
+ARC_Snake::ARC_Snake ( const ARC_Snake & a )
+{
+    contour = a.contour;
+    it=contour.begin();
+} 
 
     void
 ARC_Snake::init_contour ( Point center, vector<Point>& snake, int L, int N )
@@ -246,7 +252,7 @@ ARC_Snake::interpolate ( )
             mid = 0.5*(cur+next);
             diff = norm( cur-next );
             contour2N.push_back( (Point) cur );
-            if( diff> 20 ) contour2N.push_back( (Point) mid );
+            if( diff> 16 ) contour2N.push_back( (Point) mid );
         }
         while( next_point() );
 
@@ -261,3 +267,119 @@ ARC_Snake::interpolate ( )
     }
 }		/* -----  end of method ARC_Snake::interpolate  ----- */
 
+
+    double
+ARC_Snake::energy ( Mat image )
+{
+    double c;
+    c = measureCanny( image );
+    return c/area();
+}		/* -----  end of method ARC_Snake::energy  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: diff_color
+ * Description:  Simple energy test to seek areas similar to a target color.
+ *--------------------------------------------------------------------------------------
+ */
+    double
+ARC_Snake::diff_color ( Mat image, Scalar c )
+{
+    double d;
+    Scalar sumS;
+    Mat masked_contour;
+    masked_contour = maskImage( image, c );
+    //imshow("Contour Tracking", masked_contour );
+    //waitKey(0);
+    // subtract color from each element.
+    subtract( masked_contour, c, masked_contour);
+    
+    sumS = sum(masked_contour);
+
+    //if( verbosity==ARC_VERBOSE ) cout << "sum: " << sumS << endl;
+    d = sumS[0] + sumS[1] + sumS[2];
+    //imshow("Contour Tracking", masked_contour );
+    //waitKey(0);
+
+    // sum all elements.
+    return d;
+}		/* -----  end of function diff_color  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: maskImage
+ * Description:  Masks an image with a contour.
+ *--------------------------------------------------------------------------------------
+ */
+    Mat
+ARC_Snake::maskImage ( Mat image, Scalar c )
+{
+    Mat mask, masked_contour ;
+    vector<vector<Point> > contours;
+
+    contours.push_back( contour );
+    // mask the image with the contour.
+    mask= Mat::zeros(image.size(), CV_8UC1 );
+    drawContours(mask, contours, -1, Scalar(255,255,255), CV_FILLED );
+    masked_contour = Mat( image.size(), CV_8UC3 );
+    if( c!=Scalar(-1,-1,-1,-1) )
+    {
+        masked_contour.setTo(c);
+    }
+    image.copyTo(masked_contour, mask);
+    return masked_contour;
+}		/* -----  end of function maskImage  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: measureCanny
+ * Description:  measures amount of canny edges.
+ *--------------------------------------------------------------------------------------
+ */
+    double
+ARC_Snake::measureCanny ( Mat image )
+{
+    Mat masked_contour, masked_bw;
+    Mat full_hann, hann, windowed;
+    Mat canny_mat, canny_mat_x, canny_mat_y;
+    Mat abs_canny_mat_x, abs_canny_mat_y;
+    Rect snake_rect, image_rect;
+    Scalar canny_mean;
+    vector<vector<Point> > contours;
+
+    // Make a hanning window
+    image_rect = Rect(Point(0,0), image.size());
+    snake_rect = boundingRect( contour ) & image_rect;
+    full_hann = Mat(image.size(), CV_32F, Scalar(0,0,0,0) );
+    hann = full_hann( snake_rect );
+    createHanningWindow( hann, snake_rect.size(), CV_32F );
+    // Mask our contour
+    masked_contour = maskImage( image, Scalar(0, 0, 0, 0) );
+    cvtColor( masked_contour, masked_bw, CV_BGR2GRAY );
+
+    // Window the mask
+    multiply( masked_bw, full_hann, windowed, 1, CV_8U );
+    Sobel( windowed, canny_mat_x, CV_16S, 1, 0, 3 );
+    Sobel( windowed, canny_mat_y, CV_16S, 0, 1, 3 );
+
+    convertScaleAbs( canny_mat_x, abs_canny_mat_x );
+    convertScaleAbs( canny_mat_y, abs_canny_mat_y );
+    canny_mat = 0.5 * abs_canny_mat_x + 0.5 * abs_canny_mat_y;
+    Canny( windowed, canny_mat, 100, 200, 3 );
+    contours.push_back(contour);
+    drawContours(canny_mat, contours, 0, Scalar(0,0,0), 3 );
+    canny_mean = mean(canny_mat, masked_bw);
+    //if( verbosity==ARC_VERBOSE ) cout << "canny mean: " << canny_mean << endl;
+
+    /*
+    imshow("Contour Tracking", sobel_mat );
+    waitKey(0);
+    */
+    return canny_mean[0];
+}		/* -----  end of function measureSobel  ----- */
