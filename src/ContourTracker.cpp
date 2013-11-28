@@ -1,6 +1,7 @@
 //Simon Peter
+//Martin Miller
 //Contour Tracker
-//7-10-14
+//7-10-13
 #include "ContourTracker.hpp"
 
 using namespace std;
