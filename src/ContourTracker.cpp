@@ -8,6 +8,37 @@
 using namespace std;
 using namespace cv;
 
+/* 
+ * ===  FUNCTION  ========================================================================
+ *         Name: getUserPoints 
+ *  Description:  Asks user to select points and stores it in the vector that's passed in.
+ * =======================================================================================
+ */
+void getUserPoints(Mat image, vector<Point> & points)
+{
+        namedWindow("Select Points - Then Press Any Key",CV_WINDOW_AUTOSIZE);
+        setMouseCallback("Select Points - Then Press Any Key", getPointsFromMouse, &points);
+        imshow("Select Points - Then Press Any Key",image);
+        waitKey(0);
+        destroyWindow("Select Points - Then Press Any Key");
+}
+
+/* 
+ * ===  FUNCTION  ========================================================================
+ *         Name: onMouse 
+ *  Description:  Mouse callback function that retrieves user selected points.
+ * =======================================================================================
+ */
+void getPointsFromMouse(int event, int x, int y, int flags, void* points)
+{
+        if(event==EVENT_LBUTTONDOWN)
+        {
+                cout<<"Point added";
+                vector<Point>* userpts = (vector<Point>*)(points);        
+                userpts->push_back(Point(x,y));
+        }
+}
+
 #ifndef ARC_DEBUG
 // GLOBALS
 int areaThreshold = ARC_DEFAULT_AREA; //used 2000 and .13 for match
@@ -752,22 +783,25 @@ int main( int argc,  char **argv )
  */
 int main ( int argc, char *argv[] )
 {
-    Mat image;
-    Point ctr;
+    Mat user_image, image;
     Point cp;
+    vector<Point> user_points;
 
-    ctr = Point(240,320);
-    ARC_Snake m(ctr);
+    user_image = imread(argv[1], CV_LOAD_IMAGE_UNCHANGED);
+    getUserPoints( user_image, user_points );
     namedWindow("snake");
+    ARC_Snake m(user_points[0]);
     cout << "ARC_Snake debug: " << endl
          << "n - next point" << endl
          << "p - previous point" << endl
          << "x - expand at point" << endl
          << "c - contract at point" << endl
          << "i - interpolate new points (if possible)" << endl;
+
+
     while( 1 )
     {
-        image = Mat(480, 640, CV_8UC3);
+        image = user_image.clone();
         char c;
         c = (char) waitKey( 10 );
         if( c == 27 )
@@ -782,12 +816,15 @@ int main ( int argc, char *argv[] )
             break;
         case 'x':
             m.expand(4);
+            cout << "Energy: " << m.energy() << endl;
             break;
         case 'c':
             m.contract(4);
+            cout << "Energy: " << m.energy() << endl;
             break;
         case 'i':
             m.interpolate();
+            break
         default:
             ;
         }
