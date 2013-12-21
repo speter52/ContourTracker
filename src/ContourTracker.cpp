@@ -4,7 +4,7 @@
 #include "ContourTracker.hpp"
 #include "ARC_Snake.hpp"
 
-//#define ARC_DEBUG            /*  */
+#define ARC_DEBUG            /*  */
 using namespace std;
 using namespace cv;
 
@@ -16,11 +16,12 @@ using namespace cv;
  */
 void getUserPoints(Mat image, vector<Point> & points)
 {
-        namedWindow("Select Points - Then Press Any Key",CV_WINDOW_AUTOSIZE);
-        setMouseCallback("Select Points - Then Press Any Key", getPointsFromMouse, &points);
-        imshow("Select Points - Then Press Any Key",image);
-        waitKey(0);
-        destroyWindow("Select Points - Then Press Any Key");
+    cout << "Select center of contour with mouse. Press any key when finished." << endl;
+    namedWindow("Select Points - Then Press Any Key",CV_WINDOW_AUTOSIZE);
+    setMouseCallback("Select Points - Then Press Any Key", getPointsFromMouse, &points);
+    imshow("Select Points - Then Press Any Key",image);
+    waitKey(0);
+    destroyWindow("Select Points - Then Press Any Key");
 }
 
 /* 
@@ -31,12 +32,12 @@ void getUserPoints(Mat image, vector<Point> & points)
  */
 void getPointsFromMouse(int event, int x, int y, int flags, void* points)
 {
-        if(event==EVENT_LBUTTONDOWN)
-        {
-                cout<<"Point added";
-                vector<Point>* userpts = (vector<Point>*)(points);        
-                userpts->push_back(Point(x,y));
-        }
+    if(event==EVENT_LBUTTONDOWN)
+    {
+        cout<<"Point added";
+        vector<Point>* userpts = (vector<Point>*)(points);        
+        userpts->push_back(Point(x,y));
+    }
 }
 
 #ifndef ARC_DEBUG
@@ -787,6 +788,7 @@ int main ( int argc, char *argv[] )
     Point cp;
     vector<Point> user_points;
 
+    cout << "Usage: " << argv[0] << " " << "<image file>" << endl;
     user_image = imread(argv[1], CV_LOAD_IMAGE_UNCHANGED);
     getUserPoints( user_image, user_points );
     namedWindow("snake");
@@ -816,15 +818,15 @@ int main ( int argc, char *argv[] )
             break;
         case 'x':
             m.expand(4);
-            cout << "Energy: " << m.energy() << endl;
+            cout << "Energy: " << m.energy(image) << endl;
             break;
         case 'c':
             m.contract(4);
-            cout << "Energy: " << m.energy() << endl;
+            cout << "Energy: " << m.energy(image) << endl;
             break;
         case 'i':
             m.interpolate();
-            break
+            break;
         default:
             ;
         }
