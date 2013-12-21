@@ -57,6 +57,8 @@ double centroidTest ( Moments& trackedMom, Moments& newMom );
 double huMomentsTest ( Moments& trackedMom, Moments& newMom );
 void flow( Mat prev_image, Mat image, vector<Contour>& tracked );
 void minimize_energy ( Mat image, Point center );
+void getUserPoints(Mat image, vector<Point> & points);
+void getPointsFromMouse(int event, int x, int y, int flags, void* points);
         
 
 #endif   // ----- #ifndef ContourTracker_INC  ----- 
