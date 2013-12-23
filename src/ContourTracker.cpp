@@ -4,7 +4,7 @@
 #include "ContourTracker.hpp"
 #include "ARC_Snake.hpp"
 
-#define ARC_DEBUG            /*  */
+//#define ARC_DEBUG            /*  */
 using namespace std;
 using namespace cv;
 
@@ -684,13 +684,16 @@ int main( int argc,  char **argv )
     vector<Scalar> colors;
 	vector<string> images;
 	VideoWriter vidout;
+    vector<Point> user_points;
 	vector<ARC_Snake> snakes; //vector to store contours that are tracked between frames
 
     init( argc, argv, images, vidout, colors );
 
 	//Find initial contours to track on first image.
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
-	getContours( firstFrame, &snakes ); //finds contours and stores them in tracked
+    getUserPoints( firstFrame, user_points );
+	//getContours( firstFrame, &snakes ); //finds contours and stores them in tracked
+    snakes.push_back( ARC_Snake(user_points[0]) );
     cout << "size tracked: " << snakes.size() << endl;
 	for( size_t i=0; i<1; i++ )
     {
@@ -742,9 +745,9 @@ int main( int argc,  char **argv )
                 converged =true;
                 do
                 {
-                    snake->expand(6);
+                    snake->expand(4);
                     expand_energy = snake->energy( image );
-                    snake->contract(12);
+                    snake->contract(8);
                     contract_energy = snake->energy( image );
                     if( contract_energy < energy && contract_energy< expand_energy )
                     {
@@ -753,17 +756,17 @@ int main( int argc,  char **argv )
                     }
                     else if( expand_energy < energy )
                     {
-                        snake->expand( 12 );
+                        snake->expand( 8);
                         energy = expand_energy;
                         converged=false;
                     }
                     else
                     {
-                        snake->expand(6);
+                        snake->expand(4);
                     }
                 } while( snake->next_point() );
+                snake->interpolate();
             }
-            snake->interpolate();
             //drawContours( image2, s, 0, colors[0], 2, 8, noArray( ), 0, Point( )); //draws contour
             //circle(image2, center, 2, colors[1], 2 );
             break; // We only want to track one contour for now

@@ -24,6 +24,7 @@
 #include <iostream>
 #include <cv.h>
 #include <opencv2/core/core.hpp>
+#include </usr/include/opencv/highgui.h>
 
 using std::vector;
 using std::cerr;
@@ -62,10 +63,9 @@ class ARC_Snake
 
         /* ====================  OPERATORS     ======================================= */
         double energy( Mat img );
-        int area()
-        {
-            return contourArea(contour);
-        }
+        double area();
+        double elasticity();
+        Point center();
 
 
     protected:
@@ -82,6 +82,8 @@ class ARC_Snake
         double diff_color ( Mat image, Scalar c );
         Mat maskImage ( Mat image, Scalar c );
         double measureCanny ( Mat image );
+        bool intersections_test( Point p0, Point p1, Point p2, Point p3, Point p4 );
+        double ccw( Point a, Point b, Point c );
 
         /* ====================  DATA MEMBERS  ======================================= */
         vector<Point> contour;

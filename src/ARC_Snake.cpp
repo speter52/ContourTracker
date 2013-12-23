@@ -196,6 +196,53 @@ ARC_Snake::get_orthvec ( )
     return (Point) orthvec ;
 }		/* -----  end of method ARC_Snake::get_orthvec  ----- */
 
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: ccw
+ * Description:  Returns >0 for CCW, 0 for collinear, <0 for CW
+ *--------------------------------------------------------------------------------------
+ */
+    double
+ARC_Snake::ccw ( Point a, Point b, Point c )
+{
+    Matx33f m;
+    m = Matx33f( a.x, a.y, 1,
+                 b.x, b.y, 1,
+                 c.x, c.y, 1);
+    return determinant(m);
+}		/* -----  end of method ARC_Snake::ccw  ----- */
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: intersections_test
+ * Description:  Determines if line segments intersect by method described here:
+ * http://algs4.cs.princeton.edu/91primitives/
+ * Returns true if there is an intersection, false otherwise.
+ * TODO: Bug, returns true if collinear.
+ *--------------------------------------------------------------------------------------
+ */
+    bool
+ARC_Snake::intersections_test ( Point p0, Point p1, Point p2, Point p3, Point p4 )
+{
+    // Check 12X34
+    if( ccw( p1, p2, p3 ) * ccw( p1, p2, p4 ) > 0 ) return false;
+    // Check 01X23
+    if( ccw( p0, p1, p2 ) * ccw( p0, p1, p3 ) > 0 ) return false;
+    return true;
+    // TODO edge cases:
+    // The test above ignores situations where three or more endpoints are
+    // collinear. This includes the case if one or both of the line segments
+    // degenerate to a single point. See figure XYZ for some possible cases.
+    // Usesful subroutine is: given 3 collinear points a, b, and c, is b
+    // between a and c? Need to handle vertical line-segment case separately.
+    // Also need to worry about segments that degenerate to a single point.
+    // Surprisingly difficult to get it right.
+}		/* -----  end of method ARC_Snake::intersections_test  ----- */
+
+
 /*
  *--------------------------------------------------------------------------------------
  *       Class:  ARC_Snake
@@ -206,9 +253,26 @@ ARC_Snake::get_orthvec ( )
     void
 ARC_Snake::expand ( int L )
 {
+    Point p0, p1, p2, p3, p4; // Previous and next
     Point ov;
+
+    // Get the 2 previous points, the current point, and the next two points.
+    prev_point();
+    p0=get_prev_point();
+    next_point();
+    p1=get_prev_point();
+    p2=get_point();
+    p3=get_next_point();
+    next_point();
+    p4=get_next_point();
+    prev_point();
+
+    // Move the current point orthoganally.
     ov = get_orthvec();
-    *it+=L*ov;
+    p2+=L*ov;
+    // Check if there are any intersections.
+    if( !intersections_test( p0, p1, p2, p3, p4 ) )
+        *it=p2;
 
     return ;
 }		/* -----  end of method ARC_Snake::expand  ----- */
@@ -217,9 +281,25 @@ ARC_Snake::expand ( int L )
     void
 ARC_Snake::contract ( int L )
 {
+    Point p0, p1, p2, p3, p4; // Previous and next
     Point ov;
+
+    // Get the 2 previous points, the current point, and the next two points.
+    prev_point();
+    p0=get_prev_point();
+    next_point();
+    p1=get_prev_point();
+    p2=get_point();
+    p3=get_next_point();
+    next_point();
+    p4=get_next_point();
+    prev_point();
+
+    // Move the current point orthoganally.
     ov = get_orthvec();
-    *it-=L*ov;
+    p2-=L*ov;
+    if( !intersections_test( p0, p1, p2, p3, p4 ) )
+        *it=p2;
     return ;
 }		/* -----  end of method ARC_Snake::contract  ----- */
 
@@ -241,7 +321,8 @@ ARC_Snake::interpolate ( )
 {
     double diff;
     vector<Point> contour2N;
-    if( 2*contour.size()<(size_t)(sqrt(contourArea(contour))/4) )
+    //if( contour.size()<(size_t)(sqrt(contourArea(contour))/4) )
+    if( 1 )
     {
         it = contour.begin();
         do
@@ -251,8 +332,8 @@ ARC_Snake::interpolate ( )
             next=(Mat) get_next_point();
             mid = 0.5*(cur+next);
             diff = norm( cur-next );
-            contour2N.push_back( (Point) cur );
-            if( diff> 16 ) contour2N.push_back( (Point) mid );
+            if( diff> 8 ) contour2N.push_back( (Point) cur ); 
+            if( diff> 16 ) contour2N.push_back( (Point) mid ); 
         }
         while( next_point() );
 
@@ -271,11 +352,27 @@ ARC_Snake::interpolate ( )
     double
 ARC_Snake::energy ( Mat image )
 {
+    double elas;
     double c;
+    elas = elasticity();
     c = measureCanny( image );
-    return c/area();
+    cout << "Canny: " << c << endl;
+    cout << "Area: " << area() << endl;
+    cout << "Elasticity: " << elas << endl;
+    return 10*c + area() + 0.01*elas;
 }		/* -----  end of method ARC_Snake::energy  ----- */
 
+    double
+ARC_Snake::area ( )
+{
+    double alpha;
+    double beta;
+    double area;
+    alpha=-2e-3;
+    beta=111e-7;
+    area=contourArea(contour);
+    return 100*exp(alpha*area) + exp(beta*(area-30000));
+}		/* -----  end of method ARC_Snake::area  ----- */
 
 /*
  *--------------------------------------------------------------------------------------
@@ -371,6 +468,8 @@ ARC_Snake::measureCanny ( Mat image )
     convertScaleAbs( canny_mat_x, abs_canny_mat_x );
     convertScaleAbs( canny_mat_y, abs_canny_mat_y );
     canny_mat = 0.5 * abs_canny_mat_x + 0.5 * abs_canny_mat_y;
+    //imshow("snake", canny_mat);
+    //waitKey(0);
     Canny( windowed, canny_mat, 100, 200, 3 );
     contours.push_back(contour);
     drawContours(canny_mat, contours, 0, Scalar(0,0,0), 3 );
@@ -383,3 +482,69 @@ ARC_Snake::measureCanny ( Mat image )
     */
     return canny_mean[0];
 }		/* -----  end of function measureSobel  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: elasticity
+ * Description:  Calculate how much "external pressure" is on each point. For
+ * each point in the contour, we calculate the difference between its distance
+ * to the center of the contour and the average distance of its two nearest
+ * neighbors to the center. This difference is squared and sum of the squares
+ * is returned.
+ *--------------------------------------------------------------------------------------
+ */
+    double
+ARC_Snake::elasticity ( )
+{
+    vector<Point>::iterator it_saved;
+    double E;
+    Point cen;
+    Point p, c, n; // Previous, current, next
+    double dp, dc, dn; // Euclidean distance to center
+    double mean_dist;
+
+    // Save internal iterator so we can use functions that rely on them.
+    it_saved = it; 
+    it = contour.begin();
+    E=0;
+    // find center of contour
+    cen = center();
+    // Loop over each point
+    while( it!=contour.end() )
+    {
+        p = get_prev_point();
+        c = get_point();
+        n = get_next_point();
+        dp = norm(p-cen);
+        dc = norm(c-cen);
+        dn = norm(n-cen);
+        mean_dist = 0.5 * (dp+dn);
+        E += pow(abs(dc - mean_dist), 2);
+        ++it;
+    }
+    it = it_saved;
+
+    return E;
+}		/* -----  end of method ARC_Snake::elasticity  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: center
+ * Description:  Finds center of mass of the contour.
+ *--------------------------------------------------------------------------------------
+ */
+    Point
+ARC_Snake::center ( )
+{
+    Moments trackedMom;
+    Point center;
+
+    trackedMom = moments( contour, false );
+    center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
+    return center;
+}		/* -----  end of method ARC_Snake::center  ----- */
+
