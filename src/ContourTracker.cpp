@@ -352,7 +352,7 @@ displayContours ( Mat image, vector<ARC_Snake> snakes, VideoWriter vidout, vecto
         snakes[i].get_contour( temp );
         cp = snakes[i].get_point();
 
-        if( i<1 )	
+        //if( i<1 )	
         {
             drawContours( image, temp, 0, colors[i], 1, 8, noArray( ), 0, Point( ));
             circle( image, cp, 2, Scalar(255, 0, 0), 3 );
@@ -693,7 +693,11 @@ int main( int argc,  char **argv )
     Mat firstFrame = imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
     getUserPoints( firstFrame, user_points );
 	//getContours( firstFrame, &snakes ); //finds contours and stores them in tracked
-    snakes.push_back( ARC_Snake(user_points[0]) );
+    for( vector<Point>::iterator it=user_points.begin();
+            it!=user_points.end(); ++it )
+    {
+        snakes.push_back( ARC_Snake(*it) );
+    }
     cout << "size tracked: " << snakes.size() << endl;
 	for( size_t i=0; i<1; i++ )
     {
@@ -727,49 +731,53 @@ int main( int argc,  char **argv )
         for( vector<ARC_Snake>::iterator snake=snakes.begin();
                 snake!=snakes.end(); ++snake )
         {
-            double energy, expand_energy, contract_energy;
+            double energy, expand_energy; //, contract_energy;
             bool converged;
             unsigned int iter;
+
+            ARC_Snake snake_copy( snake->center() );
             // TODO: not sure why, but iterator broken until we do this.
             do
             {
                 ;
-            } while( snake->next_point() );
-            energy = snake->energy(image);
+            } while( snake_copy.next_point() );
 
             converged=false;
             iter=0;
-            while( converged==false && iter<16 )
+            while( converged==false && iter<8 )
             {
                 ++iter;
                 converged =true;
+                energy = snake_copy.energy(image);
                 do
                 {
-                    snake->expand(4);
-                    expand_energy = snake->energy( image );
-                    snake->contract(8);
-                    contract_energy = snake->energy( image );
-                    if( contract_energy < energy && contract_energy< expand_energy )
+                    snake_copy.expand(4);
+                    expand_energy = snake_copy.energy( image );
+                    snake_copy.contract(8);
+                    //contract_energy = snake_copy.energy( image );
+            //        if( contract_energy < energy && contract_energy< expand_energy )
+             //       {
+              //          energy = contract_energy;
+               //         converged=false;
+                //    }
+                    //else if( expand_energy < energy )
+                    if( expand_energy < energy )
                     {
-                        energy = contract_energy;
-                        converged=false;
-                    }
-                    else if( expand_energy < energy )
-                    {
-                        snake->expand( 8);
+                        snake_copy.expand( 8);
                         energy = expand_energy;
                         converged=false;
                     }
                     else
                     {
-                        snake->expand(4);
+                        snake_copy.expand(4);
                     }
-                } while( snake->next_point() );
-                snake->interpolate();
+                } while( snake_copy.next_point() );
+                snake_copy.interpolate();
             }
             //drawContours( image2, s, 0, colors[0], 2, 8, noArray( ), 0, Point( )); //draws contour
             //circle(image2, center, 2, colors[1], 2 );
-            break; // We only want to track one contour for now
+            *snake=snake_copy;
+            //break; // We only want to track one contour for now
         }
         displayContours( image2, snakes, vidout, colors );
         prev_image = image.clone();

@@ -356,9 +356,9 @@ ARC_Snake::energy ( Mat image )
     double c;
     elas = elasticity();
     c = measureCanny( image );
-    cout << "Canny: " << c << endl;
-    cout << "Area: " << area() << endl;
-    cout << "Elasticity: " << elas << endl;
+    //cout << "Canny: " << c << endl;
+    //cout << "Area: " << area() << endl;
+    //cout << "Elasticity: " << elas << endl;
     return 10*c + area() + 0.01*elas;
 }		/* -----  end of method ARC_Snake::energy  ----- */
 
@@ -368,7 +368,7 @@ ARC_Snake::area ( )
     double alpha;
     double beta;
     double area;
-    alpha=-2e-3;
+    alpha=-1e-3;
     beta=111e-7;
     area=contourArea(contour);
     return 100*exp(alpha*area) + exp(beta*(area-30000));
