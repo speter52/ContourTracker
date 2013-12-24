@@ -37,7 +37,6 @@ class FunctionCreator
 
 	public:
 	
-		FunctionCreator(int type, double left, double middle, double right, int concavity);
 		FunctionCreator(int type, double left, double middle, int concavity);
 		double operator()(double input);
 

@@ -6,18 +6,6 @@
 
 //Public constructor to create specific functor
 //Type determines what kind of equation to use, currently the only option is 0 for -x^2/(x^2-1)
-FunctionCreator::FunctionCreator(int type, double left, double middle, double right, int concavity)
-{
-	if(left>=middle || left>= right || middle >=right)
-	{
-		cout<<"Invalid parameters for function\n";
-		return;
-	}
-	if(type==0) function =  new Ushape(left,middle,concavity);
-}
-
-//Public constructor to create specific functor
-//Type determines what kind of equation to use, currently the only option is 0 for -x^2/(x^2-1)
 FunctionCreator::FunctionCreator(int type, double left, double middle, int concavity)
 {
 	if(left>=middle)
