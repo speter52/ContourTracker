@@ -77,8 +77,58 @@ displayContours ( Mat image, vector<Contour> tracked, VideoWriter vidout, vector
     return;
 }		/* -----  end of function displayContours  ----- */
 
+Mat maskScene(Mat image, vector<Point> contour)
+{
+	Rect searchRect = boundingRect(contour);
+	Mat mask =  Mat::zeros(image.size(),CV_8UC1);
+	rectangle(mask, searchRect, 255, CV_FILLED);
+	Mat maskedImage;
+	image.copyTo(maskedImage,mask);
+	return maskedImage;
+}
+	
+vector<KeyPoint> getSurfPoints(Mat image, vector<Point> contour)
+{
+	Mat maskedImage = maskScene(image,contour);
+	SurfFeatureDetector detector(400);
+	vector<KeyPoint> keypoints;
+	detector.detect(maskedImage,keypoints);
+	return keypoints;
+}
+
+int flannMatcher(Mat image, vector<Point> firstContour, vector<KeyPoint> firstPts, vector<Point> secondContour, vector<KeyPoint> secondPts)
+{
+	SurfDescriptorExtractor extractor;
+	Mat descriptors1, descriptors2;
+	
+	Mat firstMasked = maskScene(image,firstContour);
+	Mat secondMasked = maskScene(image,secondContour);
+	extractor.compute(firstMasked,firstPts,descriptors1);
+	extractor.compute(secondMasked,secondPts,descriptors2);
+
+	FlannBasedMatcher matcher;
+	vector<DMatch> matches;
+	matcher.match(descriptors1,descriptors2,matches);
+	
+	double max_dist = 0; double min_dist = 100;
+
+  //-- Quick calculation of max and min distances between keypoints
+	for( int i = 0; i < descriptors1.rows; i++ )
+	{ 
+		double dist = matches[i].distance;
+		if( dist < min_dist ) min_dist = dist;
+		if( dist > max_dist ) max_dist = dist;
+	}
+
+	int numGoodMatches = 0;
+	for( int i = 0; i < descriptors1.rows; i++ )
+	{
+		if( matches[i].distance <= max(2*min_dist, 0.02) ) numGoodMatches++;
+    }
+	return numGoodMatches;
+}
 /* 
- * ===  FUNCTION  ======================================================================
+ * === FUNCTION  ======================================================================
  *         Name:  matchContours
  *  Description:  Attempts to replace a contour with a newer, matching contour.
  * =====================================================================================
@@ -86,6 +136,8 @@ displayContours ( Mat image, vector<Contour> tracked, VideoWriter vidout, vector
     void
 matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
 {
+	vector<KeyPoint> trackedPts = getSurfPoints(image,con.contour);
+
     for( vector<Contour>::iterator newcon=newContours.begin();
      newcon!=newContours.end(); ++newcon )
     {
@@ -94,8 +146,10 @@ matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
         double distance, mahalanobis;
 
         Mat image3 = image.clone();
+		Rect trackedRect = boundingRect(con.contour);
+		Mat trackedImage = image3(trackedRect);
         Rect newRect= boundingRect(newcon->contour);
-        Mat newImage = image3(newRect);
+        Mat newConImage= image3(newRect);
 
         trackedMom = moments(con.contour,false);
         newMom = moments(newcon->contour,false);
@@ -107,7 +161,6 @@ matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
         mahalanobis = huMomentsTest( trackedMom, newMom );
     
         //Shapes test - Uses moments to compare the actual shape of two contours
-        //TODO: Get matchShapes working
         double matchReturn = matchShapes( con.contour, newcon->contour, 
                 CV_CONTOURS_MATCH_I1, 0 ); 
         if( verbosity==ARC_VERBOSE )
@@ -125,6 +178,16 @@ matchContours ( Mat image, Contour& con, vector<Contour>& newContours )
             cout << "Area difference: " << areaDifference << endl; 
             cout << "images created\n";
         }
+
+		//SURF Matching Test
+		vector<KeyPoint> newConPts = getSurfPoints(image,newcon->contour);
+		int numOfMatches = flannMatcher(image,con.contour,trackedPts,newcon->contour,newConPts);
+cout<<"Surf Matches: "<<numOfMatches<<endl;
+namedWindow("Tracked",CV_WINDOW_AUTOSIZE);
+imshow("Tracked",trackedImage);
+namedWindow("New Contour", CV_WINDOW_AUTOSIZE);
+imshow("New Contour",newConImage);
+waitKey(0);
 
         // If the contour passes all the tests,  it is added to the
         // tracked vector and taken out of the newContours vector
@@ -385,6 +448,9 @@ centroidTest ( Moments& trackedMom, Moments& newMom )
 
 int main( int argc,  char **argv )
 {
+
+	initModule_nonfree();//Needed to usee nonfree.hpp?
+
     Mat prev_image;
     vector<Scalar> colors;
 	vector<string> images;
@@ -413,7 +479,7 @@ int main( int argc,  char **argv )
     prev_image=firstFrame.clone();
 
 	//Begin image loop
-    for( vector<String>::iterator im=images.begin();
+    for( vector<string>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
         vector<Contour> newContours;

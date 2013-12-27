@@ -4,6 +4,9 @@
 #include <cv.h>
 #include </usr/include/opencv2/opencv.hpp>
 #include </usr/include/opencv/highgui.h>
+#include </usr/include/opencv2/core/core.hpp>
+#include </usr/include/opencv2/features2d/features2d.hpp>
+#include </usr/include/opencv2/nonfree/nonfree.hpp>
 #include <vector>
 #include <opencv/highgui.h>
 #include <iostream>
