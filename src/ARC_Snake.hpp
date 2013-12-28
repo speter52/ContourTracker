@@ -24,6 +24,7 @@
 #include <iostream>
 #include <cv.h>
 #include <opencv2/core/core.hpp>
+#include </usr/include/opencv2/opencv.hpp>
 #include </usr/include/opencv/highgui.h>
 
 using std::vector;
@@ -69,6 +70,9 @@ class ARC_Snake
         double area();
         double elasticity();
         Point center();
+
+		/* ==== METHODS === */
+		double getMahalanobis(vector<Point> contour);
 
 
     protected:

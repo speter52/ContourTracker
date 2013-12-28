@@ -593,3 +593,48 @@ ARC_Snake::polygonize ( )
     return ;
 }		/* -----  end of method ARC_External::polygonize  ----- */
 
+//Returns the Mahalanobis distance between another contour and the present class' contour
+double ARC_Snake::getMahalanobis(vector<Point> otherContour)
+{
+	Moments thisMom = moments(contour,false);
+	Moments otherMom = moments(otherContour,false);
+
+	double mahalanobis;
+    double thisHu[7];
+    double otherHu[7];
+    double xsum;
+    double xmean;
+
+    Matx<double,7,1> xminusy, xminusMean;
+    Matx<double,7,7> S, Sinverse;
+    Matx<double,1,1> finalProduct;
+
+    HuMoments(thisMom,thisHu);//Calculates Hu Moments for this contour
+    HuMoments(otherMom,otherHu);//Calculates Hu Moments for other contour to be matched
+    
+    //Vector that represents (x-y) where x is the this Hu Moments and y is the other contour Hu Moments
+    for(int g=0;g<7;g++){
+        xminusy(0,g) = thisHu[g]-otherHu[g];
+    }   
+    
+    //Calculates mean of x vector
+    int g;
+    for( xsum=0, g=0; g<7; g++ )
+    {   
+        xsum+=thisHu[g];
+    }   
+    xmean = xsum/7.0;
+
+    for(g=0; g<7; g++ )
+    {   
+        xminusMean(g,0) = thisHu[g]-xmean;
+    }   
+    //Calculate the S matrix by multipying the last vector by it's transpose, then dividing by 7
+    S = (xminusMean*xminusMean.t())*(1.0/7.0);
+    
+    invert(S,Sinverse,DECOMP_SVD);  
+    finalProduct = xminusy.t()*Sinverse*xminusy;
+    mahalanobis = sqrt(finalProduct(0,0));//Square root the final product to get the mahalanobis distance
+
+    return mahalanobis;
+}
