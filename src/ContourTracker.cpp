@@ -3,6 +3,7 @@
 //7-10-14
 #include "ContourTracker.hpp"
 #include "ARC_Snake.hpp"
+#include "ARC_External.hpp"
 
 //#define ARC_DEBUG            /*  */
 using namespace std;
@@ -720,6 +721,7 @@ int main( int argc,  char **argv )
             im!=images.end(); ++im )
     {
         Mat image, image2;
+        Mat Ex, Ey;
         image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
         image2 = image.clone();
 
@@ -731,52 +733,59 @@ int main( int argc,  char **argv )
         for( vector<ARC_Snake>::iterator snake=snakes.begin();
                 snake!=snakes.end(); ++snake )
         {
-            double energy, expand_energy; //, contract_energy;
-            bool converged;
             unsigned int iter;
+            bool converged;
+            double energy, expand_energy , contract_energy;
+            snake->set_color( image );
 
-            ARC_Snake snake_copy( snake->center() );
+            //ARC_Snake snake_copy( snake->center() );
             // TODO: not sure why, but iterator broken until we do this.
             do
             {
                 ;
-            } while( snake_copy.next_point() );
+            } while( snake->next_point() );
 
             converged=false;
             iter=0;
+            int L;
+            L=3;
             while( converged==false && iter<8 )
             {
                 ++iter;
                 converged =true;
-                energy = snake_copy.energy(image);
+                energy = snake->energy(image);
                 do
                 {
-                    snake_copy.expand(4);
-                    expand_energy = snake_copy.energy( image );
-                    snake_copy.contract(8);
-                    //contract_energy = snake_copy.energy( image );
-            //        if( contract_energy < energy && contract_energy< expand_energy )
-             //       {
-              //          energy = contract_energy;
-               //         converged=false;
-                //    }
-                    //else if( expand_energy < energy )
-                    if( expand_energy < energy )
+
+
+
+                    snake->expand(L);
+                    expand_energy = snake->energy( image );
+                    snake->contract(2*L);
+                    contract_energy = snake->energy( image );
+                    if( contract_energy < energy && contract_energy< expand_energy )
                     {
-                        snake_copy.expand( 8);
+                        energy = contract_energy;
+                        converged=false;
+                    }
+                    else if( expand_energy < energy )
+                    //if( expand_energy < energy )
+                    {
+                        snake->expand( 2*L);
                         energy = expand_energy;
                         converged=false;
                     }
                     else
                     {
-                        snake_copy.expand(4);
+                        snake->expand(L);
                     }
-                } while( snake_copy.next_point() );
-                snake_copy.interpolate();
+                } while( snake->next_point() );
+                snake->interpolate(L);
             }
+            snake->polygonize();
             //drawContours( image2, s, 0, colors[0], 2, 8, noArray( ), 0, Point( )); //draws contour
             //circle(image2, center, 2, colors[1], 2 );
-            *snake=snake_copy;
+            //*snake=snake_copy;
             //break; // We only want to track one contour for now
         }
         displayContours( image2, snakes, vidout, colors );

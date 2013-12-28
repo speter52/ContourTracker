@@ -57,9 +57,12 @@ class ARC_Snake
         void get_contour( vector<vector<Point> >& cons );
 
         /* ====================  MUTATORS      ======================================= */
+        void set_color( Mat image );
         void expand( int L );
         void contract( int L);
-        int interpolate();
+        int interpolate(int L);
+        void set_point( Point p );
+        void polygonize();
 
         /* ====================  OPERATORS     ======================================= */
         double energy( Mat img );
@@ -88,6 +91,7 @@ class ARC_Snake
         /* ====================  DATA MEMBERS  ======================================= */
         vector<Point> contour;
         vector<Point>::iterator it;
+        Scalar color;
 
 }; /* ----------  end of template class Snake  ---------- */
 #endif   /* ----- #ifndef ARC_Snake_INC  ----- */

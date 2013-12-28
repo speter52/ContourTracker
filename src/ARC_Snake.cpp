@@ -18,6 +18,7 @@
 
 
 #include "ARC_Snake.hpp"
+#include "ARC_External.hpp"
 
 /*
  *--------------------------------------------------------------------------------------
@@ -317,7 +318,7 @@ ARC_Snake::contract ( int L )
  *--------------------------------------------------------------------------------------
  */
     int
-ARC_Snake::interpolate ( )
+ARC_Snake::interpolate (int L )
 {
     double diff;
     vector<Point> contour2N;
@@ -332,8 +333,8 @@ ARC_Snake::interpolate ( )
             next=(Mat) get_next_point();
             mid = 0.5*(cur+next);
             diff = norm( cur-next );
-            if( diff> 8 ) contour2N.push_back( (Point) cur ); 
-            if( diff> 16 ) contour2N.push_back( (Point) mid ); 
+            if( diff> 2*L ) contour2N.push_back( (Point) cur ); 
+            if( diff> 4*L ) contour2N.push_back( (Point) mid ); 
         }
         while( next_point() );
 
@@ -353,13 +354,17 @@ ARC_Snake::interpolate ( )
 ARC_Snake::energy ( Mat image )
 {
     double elas;
-    double c;
+    //double c;
+    double dc;
+    dc =diff_color( image, color );
     elas = elasticity();
-    c = measureCanny( image );
+    //c = measureCanny( image );
     //cout << "Canny: " << c << endl;
     //cout << "Area: " << area() << endl;
-    //cout << "Elasticity: " << elas << endl;
-    return 10*c + area() + 0.01*elas;
+    //cout << "Elasticity: " << 0.001 * elas << endl;
+    //cout << "DC: " << dc/pow(contourArea(contour),2) << endl;
+    //return dc/pow(contourArea(contour),2);
+    return 0.00001*dc + area() + 0.001*elas;
 }		/* -----  end of method ARC_Snake::energy  ----- */
 
     double
@@ -368,8 +373,9 @@ ARC_Snake::area ( )
     double alpha;
     double beta;
     double area;
-    alpha=-1e-3;
+    alpha=-1e-5;
     beta=111e-7;
+    beta=0;
     area=contourArea(contour);
     return 100*exp(alpha*area) + exp(beta*(area-30000));
 }		/* -----  end of method ARC_Snake::area  ----- */
@@ -391,7 +397,7 @@ ARC_Snake::diff_color ( Mat image, Scalar c )
     //imshow("Contour Tracking", masked_contour );
     //waitKey(0);
     // subtract color from each element.
-    subtract( masked_contour, c, masked_contour);
+    subtract( c, masked_contour, masked_contour);
     
     sumS = sum(masked_contour);
 
@@ -468,9 +474,9 @@ ARC_Snake::measureCanny ( Mat image )
     convertScaleAbs( canny_mat_x, abs_canny_mat_x );
     convertScaleAbs( canny_mat_y, abs_canny_mat_y );
     canny_mat = 0.5 * abs_canny_mat_x + 0.5 * abs_canny_mat_y;
+    Canny( windowed, canny_mat, 300, 400, 3 );
     //imshow("snake", canny_mat);
     //waitKey(0);
-    Canny( windowed, canny_mat, 100, 200, 3 );
     contours.push_back(contour);
     drawContours(canny_mat, contours, 0, Scalar(0,0,0), 3 );
     canny_mean = mean(canny_mat, masked_bw);
@@ -547,4 +553,43 @@ ARC_Snake::center ( )
     center = Point(trackedMom.m10/trackedMom.m00,trackedMom.m01/trackedMom.m00);
     return center;
 }		/* -----  end of method ARC_Snake::center  ----- */
+
+
+/*
+ *--------------------------------------------------------------------------------------
+ *       Class:  ARC_Snake
+ *      Method:  ARC_Snake :: set_color
+ * Description:  Sets the color to the average inside the contour.
+ *--------------------------------------------------------------------------------------
+ */
+    void
+ARC_Snake::set_color ( Mat image )
+{
+    Mat mask;
+    Scalar black;
+    vector<vector<Point> > contours;
+    black = Scalar( 0,0,0,0 );
+    mask = Mat(image.size(), CV_8UC1, Scalar::all(0));
+    contours.push_back(contour);
+    drawContours(mask, contours, -1, Scalar(255,255,255), CV_FILLED );
+    color = mean(image, mask);
+    return ;
+}		/* -----  end of method ARC_Snake::set_color  ----- */
+
+    void
+ARC_Snake::set_point ( Point p )
+{
+    *it=p;
+}		/* -----  end of method ARC_External::set_point  ----- */
+
+    void
+ARC_Snake::polygonize ( )
+{
+    double eps;
+    vector<Point> approx;
+    eps=4;
+    approxPolyDP( contour, approx, eps, true );
+    contour=approx;
+    return ;
+}		/* -----  end of method ARC_External::polygonize  ----- */
 
