@@ -59,6 +59,7 @@ class ARC_Snake
 
         /* ====================  MUTATORS      ======================================= */
         void set_color( Mat image );
+        void set_canny( Mat image ) { image_canny = image; }
         void expand( int L );
         void contract( int L);
         int interpolate(int L);
@@ -66,7 +67,7 @@ class ARC_Snake
         void polygonize();
 
         /* ====================  OPERATORS     ======================================= */
-        double energy( Mat img );
+        double energy( Mat img, vector<Point>& prev );
         double area();
         double elasticity();
         Point center();
@@ -88,11 +89,12 @@ class ARC_Snake
         void init_contour( Point center, vector<Point>& snake, int L, int N );
         double diff_color ( Mat image, Scalar c );
         Mat maskImage ( Mat image, Scalar c );
-        double measureCanny ( Mat image );
+        double measureCanny ( );
         bool intersections_test( Point p0, Point p1, Point p2, Point p3, Point p4 );
         double ccw( Point a, Point b, Point c );
 
         /* ====================  DATA MEMBERS  ======================================= */
+        Mat image_canny;
         vector<Point> contour;
         vector<Point>::iterator it;
         Scalar color;

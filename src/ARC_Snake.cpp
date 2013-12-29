@@ -351,20 +351,27 @@ ARC_Snake::interpolate (int L )
 
 
     double
-ARC_Snake::energy ( Mat image )
+ARC_Snake::energy ( Mat image, vector<Point>& prev )
 {
+    double E;
     double elas;
-    //double c;
+    double c;
     double dc;
+    double md;
+    md = getMahalanobis( prev );
     dc =diff_color( image, color );
     elas = elasticity();
-    //c = measureCanny( image );
-    //cout << "Canny: " << c << endl;
-    //cout << "Area: " << area() << endl;
-    //cout << "Elasticity: " << 0.001 * elas << endl;
-    //cout << "DC: " << dc/pow(contourArea(contour),2) << endl;
+    c = measureCanny( );
+    cout << "MD: " << md << endl;
+    cout << "Canny: " << c << endl;
+    cout << "Area: " << area() << endl;
+    cout << "Elasticity: " << 0.001 * elas << endl;
+    cout << "DC: " << dc/pow(contourArea(contour),2) << endl;
+    E = 5*md + 0.0001*dc+100*c + area() + 0.001*elas;
+    cout << "E: " << E << endl;
+    return E;
     //return dc/pow(contourArea(contour),2);
-    return 0.00001*dc + area() + 0.001*elas;
+    //return 0.00001*dc + area() + 0.001*elas;
 }		/* -----  end of method ARC_Snake::energy  ----- */
 
     double
@@ -373,7 +380,7 @@ ARC_Snake::area ( )
     double alpha;
     double beta;
     double area;
-    alpha=-1e-5;
+    alpha=-1e-3;
     beta=111e-7;
     beta=0;
     area=contourArea(contour);
@@ -446,46 +453,20 @@ ARC_Snake::maskImage ( Mat image, Scalar c )
  *--------------------------------------------------------------------------------------
  */
     double
-ARC_Snake::measureCanny ( Mat image )
+ARC_Snake::measureCanny ( )
 {
-    Mat masked_contour, masked_bw;
-    Mat full_hann, hann, windowed;
-    Mat canny_mat, canny_mat_x, canny_mat_y;
-    Mat abs_canny_mat_x, abs_canny_mat_y;
-    Rect snake_rect, image_rect;
+    Mat masked_contour ;
+    Mat windowed;
     Scalar canny_mean;
     vector<vector<Point> > contours;
 
-    // Make a hanning window
-    image_rect = Rect(Point(0,0), image.size());
-    snake_rect = boundingRect( contour ) & image_rect;
-    full_hann = Mat(image.size(), CV_32F, Scalar(0,0,0,0) );
-    hann = full_hann( snake_rect );
-    createHanningWindow( hann, snake_rect.size(), CV_32F );
     // Mask our contour
-    masked_contour = maskImage( image, Scalar(0, 0, 0, 0) );
-    cvtColor( masked_contour, masked_bw, CV_BGR2GRAY );
+    masked_contour = maskImage( image_canny, Scalar(0, 0, 0, 0) );
 
-    // Window the mask
-    multiply( masked_bw, full_hann, windowed, 1, CV_8U );
-    Sobel( windowed, canny_mat_x, CV_16S, 1, 0, 3 );
-    Sobel( windowed, canny_mat_y, CV_16S, 0, 1, 3 );
+    canny_mean = mean(masked_contour);
 
-    convertScaleAbs( canny_mat_x, abs_canny_mat_x );
-    convertScaleAbs( canny_mat_y, abs_canny_mat_y );
-    canny_mat = 0.5 * abs_canny_mat_x + 0.5 * abs_canny_mat_y;
-    Canny( windowed, canny_mat, 300, 400, 3 );
-    //imshow("snake", canny_mat);
-    //waitKey(0);
-    contours.push_back(contour);
-    drawContours(canny_mat, contours, 0, Scalar(0,0,0), 3 );
-    canny_mean = mean(canny_mat, masked_bw);
     //if( verbosity==ARC_VERBOSE ) cout << "canny mean: " << canny_mean << endl;
 
-    /*
-    imshow("Contour Tracking", sobel_mat );
-    waitKey(0);
-    */
     return canny_mean[0];
 }		/* -----  end of function measureSobel  ----- */
 

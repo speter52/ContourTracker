@@ -720,7 +720,7 @@ int main( int argc,  char **argv )
     for( vector<String>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
-        Mat image, image2;
+        Mat image, image2, image_canny;
         Mat Ex, Ey;
         image = imread( *im, CV_LOAD_IMAGE_UNCHANGED );
         image2 = image.clone();
@@ -730,13 +730,19 @@ int main( int argc,  char **argv )
             cout << "Cannot load image." << endl;
             exit(  EXIT_FAILURE );
         }
+        Canny( image, image_canny, 100, 200, 3 );
+
         for( vector<ARC_Snake>::iterator snake=snakes.begin();
                 snake!=snakes.end(); ++snake )
         {
+            vector<vector<Point> > prev;
             unsigned int iter;
             bool converged;
             double energy, expand_energy , contract_energy;
+
+            snake->get_contour( prev );
             snake->set_color( image );
+            snake->set_canny( image_canny );
 
             //ARC_Snake snake_copy( snake->center() );
             // TODO: not sure why, but iterator broken until we do this.
@@ -753,16 +759,13 @@ int main( int argc,  char **argv )
             {
                 ++iter;
                 converged =true;
-                energy = snake->energy(image);
+                energy = snake->energy(image, prev[0]);
                 do
                 {
-
-
-
                     snake->expand(L);
-                    expand_energy = snake->energy( image );
+                    expand_energy = snake->energy( image, prev[0] );
                     snake->contract(2*L);
-                    contract_energy = snake->energy( image );
+                    contract_energy = snake->energy( image, prev[0] );
                     if( contract_energy < energy && contract_energy< expand_energy )
                     {
                         energy = contract_energy;
@@ -804,7 +807,7 @@ int main( int argc,  char **argv )
  */
 int main ( int argc, char *argv[] )
 {
-    Mat user_image, image;
+    Mat user_image, image, image_canny;
     Point cp;
     vector<Point> user_points;
 
@@ -824,6 +827,8 @@ int main ( int argc, char *argv[] )
     while( 1 )
     {
         image = user_image.clone();
+        Canny( image, image_canny, 100, 200, 3 );
+        m.set_canny(image_canny);
         char c;
         c = (char) waitKey( 10 );
         if( c == 27 )
@@ -845,7 +850,7 @@ int main ( int argc, char *argv[] )
             cout << "Energy: " << m.energy(image) << endl;
             break;
         case 'i':
-            m.interpolate();
+            m.interpolate(4);
             break;
         default:
             ;
