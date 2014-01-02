@@ -8,19 +8,6 @@
 
 /* 
  * ===  FUNCTION  ======================================================================
- *         Name:  next_index
- *  Description:  Increments and returns the next index.
- * =====================================================================================
- */
-    unsigned
-next_index ( )
-{
-    static unsigned index=0;
-    return ++index;
-}		/* -----  end of function next_index  ----- */
-
-/* 
- * ===  FUNCTION  ======================================================================
  *         Name:  getImageList
  *  Description:  Reads in list of image filenames.
  * =====================================================================================
@@ -46,6 +33,7 @@ void getImageList( std::string filename,  std::vector<std::string>* il )
 
 int main(int argc, char** argv)
 {
+    unsigned index=0;
     vpTemplateTrackerWarpHomography warp;
     std::string listname;
     std::vector<std::string> images;
@@ -76,7 +64,7 @@ int main(int argc, char** argv)
         temp->setPyramidal(2, 1);
         temp->initClick( I, true );
         c.push_back( temp );
-        in.push_back( next_index() );
+        in.push_back( index++ );
 
         std::cout << "Press enter to continue adding contours. "
                   << "Any other key followed by enter when done.";
@@ -99,7 +87,7 @@ int main(int argc, char** argv)
             temp->setPyramidal(2, 1);
             temp->initClick( I, true );
             c.push_back( temp );
-            in.push_back( next_index() );
+            in.push_back( index++ );
         }
 
         std::vector<unsigned>::iterator index=in.begin();

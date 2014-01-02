@@ -20,5 +20,4 @@
 #define ARC_WIDTH 640            /*  */
 #define ARC_HEIGHT 480            /*  */
 void getImageList( std::string filename,  std::vector<std::string>* il );
-unsigned next_index ( );
 #endif   /* ----- #ifndef arc-template_INC  ----- */
