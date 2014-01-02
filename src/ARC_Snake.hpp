@@ -58,18 +58,19 @@ class ARC_Snake
         void get_contour( vector<vector<Point> >& cons );
 
         /* ====================  MUTATORS      ======================================= */
+        void set_point( Point p ) { *it=p; }
         void set_color( Mat image );
         void set_canny( Mat image ) { image_canny = image; }
         void expand( int L );
         void contract( int L);
         int interpolate(int L);
-        void set_point( Point p );
         void polygonize();
 
         /* ====================  OPERATORS     ======================================= */
         double energy( Mat img, vector<Point>& prev );
         double area();
         double elasticity();
+        void internal_energy( Point& tension, Point& stiffness );
         Point center();
 
 		/* ==== METHODS === */
@@ -97,6 +98,7 @@ class ARC_Snake
         Mat image_canny;
         vector<Point> contour;
         vector<Point>::iterator it;
+        unsigned int index;
         Scalar color;
 
 }; /* ----------  end of template class Snake  ---------- */

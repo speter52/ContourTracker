@@ -26,10 +26,11 @@ class ARC_External
         ARC_External ( Mat img );                             /* constructor */
 
         /* ====================  ACCESSORS     ======================================= */
-        void line_energy(Mat& gradx, Mat& grady);
-        void edge_energy(Mat& gradxx, Mat& gradxy, Mat& gradyy);
-        void term_energy();
-        void energy (Mat& x, Mat& y);
+        void intensity();
+        void edges();
+        void term();
+        void show_intensity();
+        Point energy (Point s);
 
         /* ====================  MUTATORS      ======================================= */
         void set_wline( double w );
@@ -38,6 +39,7 @@ class ARC_External
         void set_image( Mat img );
 
         /* ====================  OPERATORS     ======================================= */
+        void init_matrices();
 
 
     protected:
@@ -51,6 +53,7 @@ class ARC_External
         /* ====================  DATA MEMBERS  ======================================= */
         Mat image;
         double wline, wedge, wterm;
+        Mat gradx, grady, gradxx, gradxy, gradyy, cgradx, cgrady;
 
 }; /* -----  end of class ARC_External  ----- */
 

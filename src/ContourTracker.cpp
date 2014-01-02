@@ -5,7 +5,7 @@
 #include "ARC_Snake.hpp"
 #include "ARC_External.hpp"
 
-//#define ARC_DEBUG            /*  */
+#define ARC_DEBUG            /*  */
 using namespace std;
 using namespace cv;
 
@@ -717,7 +717,7 @@ int main( int argc,  char **argv )
     prev_image=firstFrame.clone();
 
 	//Begin image loop
-    for( vector<String>::iterator im=images.begin();
+    for( vector<std::string>::iterator im=images.begin();
             im!=images.end(); ++im )
     {
         Mat image, image2, image_canny;
@@ -754,7 +754,7 @@ int main( int argc,  char **argv )
             converged=false;
             iter=0;
             int L;
-            L=3;
+            L=2;
             while( converged==false && iter<8 )
             {
                 ++iter;
@@ -798,6 +798,28 @@ int main( int argc,  char **argv )
 
 #else
 
+double alpha;
+double beta;
+double wline;
+double wedge;
+void change_alpha( int slider, void* fn )
+{
+    alpha= slider/100.0;
+}
+
+void change_beta( int slider, void* fn )
+{
+    beta= slider/100.0;
+}
+void change_wline( int slider, void* fn )
+{
+    wline= (slider-500)/100.0;
+}
+void change_wedge( int slider, void* fn )
+{
+    wedge= slider/1000.0;
+}
+
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -808,24 +830,44 @@ int main( int argc,  char **argv )
 int main ( int argc, char *argv[] )
 {
     Mat user_image, image, image_canny;
+    Point2f tension, stiffness;
+    Point2f ext_pt;
     Point cp;
+    Point t, s, e;
     vector<Point> user_points;
+    //Trackbar vars
+    int al;
+    int be;
+    int wl=500;
+    int we;
 
     cout << "Usage: " << argv[0] << " " << "<image file>" << endl;
     user_image = imread(argv[1], CV_LOAD_IMAGE_UNCHANGED);
-    getUserPoints( user_image, user_points );
+    ARC_External ext(user_image);
     namedWindow("snake");
+    getUserPoints( user_image, user_points );
     ARC_Snake m(user_points[0]);
+    createTrackbar( "alpha", "snake", &al, 1000, change_alpha);
+    createTrackbar( "beta", "snake", &be, 1000, change_beta);
+    createTrackbar( "wedge", "snake", &we, 1000, change_wedge);
+    createTrackbar( "wline", "snake", &wl, 1000, change_wline);
     cout << "ARC_Snake debug: " << endl
          << "n - next point" << endl
          << "p - previous point" << endl
          << "x - expand at point" << endl
          << "c - contract at point" << endl
+         << "d - derivate" << endl
          << "i - interpolate new points (if possible)" << endl;
 
 
     while( 1 )
     {
+        ext.set_wline(wline);
+        ext.set_wedge(wedge);
+        cp = m.get_point();
+        ext_pt = ext.energy(cp);
+        vector<vector<Point> > prev;
+        m.get_contour(prev);
         image = user_image.clone();
         Canny( image, image_canny, 100, 200, 3 );
         m.set_canny(image_canny);
@@ -835,30 +877,60 @@ int main ( int argc, char *argv[] )
             break;
         switch( c )
         {
+        case 's':
+            m.set_point(cp-e+s-t);
+            break;
+        case 'g':
+            ext.show_intensity();
+            break;
         case 'n':
             m.next_point();
+            cp=m.get_point();
+            ext_pt = ext.energy(cp);
             break;
         case 'p':
             m.prev_point();
+            cp=m.get_point();
+            ext_pt = ext.energy(cp);
             break;
         case 'x':
             m.expand(4);
-            cout << "Energy: " << m.energy(image) << endl;
+            cp=m.get_point();
+            ext_pt = ext.energy(cp);
+            //cout << "Energy: " << m.energy(image, prev[0]) << endl;
             break;
         case 'c':
             m.contract(4);
-            cout << "Energy: " << m.energy(image) << endl;
+            cp=m.get_point();
+            ext_pt = ext.energy(cp);
+            //cout << "Energy: " << m.energy(image, prev[0]) << endl;
             break;
         case 'i':
             m.interpolate(4);
             break;
+        case 'd':
+            break;
         default:
             ;
         }
+        m.internal_energy(t, s);
+        tension=t;
+        stiffness=s;
+        cout << "Tension: " << alpha*tension << endl;
+        cout << "Stiffness: " << beta*stiffness << endl;
+        cout << "Ext: " << ext_pt << endl;
+        tension = alpha*tension;
+        stiffness = beta*stiffness;
+        t= Point((int)tension.x, (int)tension.y);
+        s= Point((int)stiffness.x, (int)stiffness.y);
+        e= Point((int)ext_pt.x, (int)ext_pt.y);
+        line( image, cp, cp-t, Scalar(127,255,0) );
+        line( image, cp, cp+s, Scalar(255,127,0) );
+        line( image, cp, cp-e, Scalar(0,0,255) );
+        line( image, cp, cp-e+s-t, Scalar(127,127,255),2 );
         vector<vector<Point> > conts;
         m.get_contour(conts);
         drawContours( image, conts, 0, Scalar(0,255,0) );
-        cp = m.get_point();
         circle( image, cp, 2, Scalar(255, 0, 0), 3 );
         imshow( "snake", image );
     }

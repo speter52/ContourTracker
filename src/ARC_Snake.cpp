@@ -31,6 +31,7 @@ ARC_Snake::ARC_Snake ( vector<Point>& con )
 {
     contour=con;
     it = contour.begin();
+    index=0;
 }  /* -----  end of method ARC_Snake::ARC_Snake  (constructor)  ----- */
 
 /*
@@ -47,6 +48,7 @@ ARC_Snake::ARC_Snake ( Point center )
     N = 4;
     init_contour( center, contour, L, N );
     it = contour.begin();
+    index=0;
 }  /* -----  end of method ARC_Snake::ARC_Snake  (constructor)  ----- */
 
 /* Copy constructor */
@@ -54,6 +56,7 @@ ARC_Snake::ARC_Snake ( const ARC_Snake & a )
 {
     contour = a.contour;
     it=contour.begin();
+    index=0;
 } 
 
     void
@@ -91,8 +94,10 @@ ARC_Snake::init_contour ( Point center, vector<Point>& snake, int L, int N )
 ARC_Snake::next_point ( )
 {
     ++it;
+    ++index;
     if( it!=contour.end() ) return true;
     it=contour.begin();
+    index=0;
     return false;
 }		/* -----  end of method ARC_Snake::next_point  ----- */
 
@@ -111,9 +116,11 @@ ARC_Snake::prev_point ( )
     if( it!=contour.begin() )
     {
         --it;
+        --index;
         return true;
     }
     it=contour.end()-1;
+    index=contour.size()-1;
     return false;
 }		/* -----  end of method ARC_Snake::prev_point  ----- */
 
@@ -367,7 +374,7 @@ ARC_Snake::energy ( Mat image, vector<Point>& prev )
     cout << "Area: " << area() << endl;
     cout << "Elasticity: " << 0.001 * elas << endl;
     cout << "DC: " << dc/pow(contourArea(contour),2) << endl;
-    E = 5*md + 0.0001*dc+100*c + area() + 0.001*elas;
+    E = 10*md + 0.0001*dc+100*c + area() + 0.01*elas;
     cout << "E: " << E << endl;
     return E;
     //return dc/pow(contourArea(contour),2);
@@ -557,11 +564,6 @@ ARC_Snake::set_color ( Mat image )
     return ;
 }		/* -----  end of method ARC_Snake::set_color  ----- */
 
-    void
-ARC_Snake::set_point ( Point p )
-{
-    *it=p;
-}		/* -----  end of method ARC_External::set_point  ----- */
 
     void
 ARC_Snake::polygonize ( )
@@ -619,3 +621,36 @@ double ARC_Snake::getMahalanobis(vector<Point> otherContour)
 
     return mahalanobis;
 }
+
+    void
+ARC_Snake::internal_energy ( Point& tension, Point& stiffness )
+{
+    int len;
+    unsigned int save_index;
+    vector<Point>::iterator save_it;
+
+    save_it=it;
+    save_index=index;
+    len = contour.size();
+
+    Mat s = Mat(20,len, CV_16U);
+    Mat ds2, ds4;
+
+    int i=0;
+    it=contour.begin();
+    index=0;
+    while( next_point() )
+    {
+        s.at<unsigned short int>(0,i)=it->x;
+        s.at<unsigned short int>(10,i)=it->y;
+        ++i;
+    }
+    it=save_it;
+    index=save_index;
+    Sobel( s, ds2, CV_64F, 2, 0, 1);
+    Sobel( ds2, ds4, CV_64F, 2, 0, 1);
+    tension=len*Point( ds2.at<double>(0, index), ds2.at<double>(10, index));
+    stiffness=len*Point( ds4.at<double>(0, index), ds4.at<double>(10, index));
+    return ;
+}		/* -----  end of method ARC_Snake::derivate  ----- */
+
