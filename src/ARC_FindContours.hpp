@@ -10,24 +10,22 @@
 #include <iostream>
 #include <string>
 
-using namespace std;
-using namespace cv;
-
 class ARC_FindContours
 {
 	public:
 
 		ARC_FindContours();
 		ARC_FindContours(int minArea, int maxArea, bool runApproxPolyDP, bool runConvexHull);
-		ARC_FindContours(int minArea, int maxArea, int lowerAngle, int upperAngle, bool runApproxPolyDP, bool runConvexHull);
+		ARC_FindContours(int minArea, int maxArea, int lowerAngle, int upperAngle,
+                bool runApproxPolyDP, bool runConvexHull);
 		void set_min_area(int minArea);
 		void set_max_area(int maxArea);
 		void set_lower_angle(int lowerAngle);
 		void set_upper_angle(int upperAngle);
 		void set_approx_poly(bool runApproxPolyDP);
 		void set_convex_hull(bool runConvexHull);
-		bool get_contours(Mat image, vector<vector<Point> > & contours);
-		bool get_quads(Mat image, vector<vector<Point> > & contours);
+		bool get_contours(cv::Mat image, std::vector<std::vector<cv::Point> >& contours);
+		bool get_quads(cv::Mat image, std::vector<std::vector<cv::Point> >& contours);
 
 	private:
 
@@ -39,12 +37,13 @@ class ARC_FindContours
 		bool runPoly;
 		bool runHull;
 
-		double dot(Point A, Point B);		
-		double findMagnitude(Point vector);
-		double angleBetween(Point point1, Point vertex, Point point2);
-		bool angleTest(vector<Point> contour);
-		bool applyThresholds(vector<Point> & contour);
-		void filterContours(vector<vector<Point> > & curContours, vector<vector<Point> > & newContours);
-		void getCanny(Mat & image);
+		double dot(cv::Point A, cv::Point B);		
+		double findMagnitude(cv::Point vector);
+		double angleBetween(cv::Point point1, cv::Point vertex, cv::Point point2);
+		bool angleTest(std::vector<cv::Point> contour);
+		bool applyThresholds(std::vector<cv::Point>& contour);
+		void filterContours(std::vector<std::vector<cv::Point> >& curContours,
+                std::vector<std::vector<cv::Point> >& newContours);
+		void getCanny(cv::Mat& image);
 };
 #endif		

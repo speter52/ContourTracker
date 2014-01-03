@@ -5,6 +5,7 @@
  * Uses ViSP template tracking to track contours.
  */
 #include "arc-template.hpp"
+#include "ARC_FindContours.hpp"
 
 /* 
  * ===  FUNCTION  ======================================================================
