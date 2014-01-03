@@ -38,6 +38,9 @@ int main(int argc, char** argv)
     vpTemplateTrackerWarpHomography warp;
     std::string listname;
     std::vector<std::string> images;
+    ARC_FindContours fc;
+    std::vector<std::vector<cv::Point> > quads;
+    cv::Mat firstFrame;
 
     std::vector<vpTemplateTrackerSSDInverseCompositional*> c;
     std::vector<unsigned> in;
@@ -47,6 +50,11 @@ int main(int argc, char** argv)
     listname = argv[1];
     getImageList( listname, &images );
 
+    firstFrame = cv::imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
+    fc.get_quads( firstFrame, quads, quads );
+    drawContours( firstFrame, quads, -1, cv::Scalar( 0, 255, 0) );
+    //cv::imshow( "test", firstFrame );
+    //cv::waitKey( 10 );
     vpImageIo::read(I, images[0]);
     display.init(I, 100, 100, "Template tracker");
     vpDisplay::display(I);
@@ -55,22 +63,32 @@ int main(int argc, char** argv)
     // Select N contours.
     std::cout << "Left click the points of the contour, "
               << "right-click the final point." << std::endl;
-    char line[5];
-    do 
+    //char line[5];
+    //do 
+    for( std::vector<std::vector<cv::Point> >::iterator q=quads.begin();
+            q!=quads.end(); ++q )
     {
+        std::vector<vpImagePoint> points;
         vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
         temp->setSampling(2,2);
         temp->setLambda(0.001);
         temp->setIterationMax(200);
         temp->setPyramidal(2, 1);
-        temp->initClick( I, true );
+        //temp->initClick( I, true );
+        for( std::vector<cv::Point>::iterator p=q->begin();
+                p!=q->end(); ++p )
+        {
+            // Note ij notation used, not xy
+            points.push_back( vpImagePoint( p->y, p->x ) );
+        }
+        temp->initFromPoints( I, points, true );
         c.push_back( temp );
         in.push_back( index++ );
 
-        std::cout << "Press enter to continue adding contours. "
-                  << "Any other key followed by enter when done.";
-        fgets(line, 4, stdin);
-    } while( line[0]=='\n' );
+        //std::cout << "Press enter to continue adding contours. "
+                  //<< "Any other key followed by enter when done.";
+        //fgets(line, 4, stdin);
+    } //while( line[0]=='\n' );
 
     for( std::vector<std::string>::iterator img=images.begin();
             img!=images.end(); ++img )
@@ -79,19 +97,38 @@ int main(int argc, char** argv)
         vpDisplay::display(I);
         // Add more contours if necessary
         vpDisplay::flush(I);
-        while( c.size()<ARC_MIN_CONTOURS )
+        if( c.size()<ARC_MIN_CONTOURS )
         {
-            vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
-            temp->setSampling(2,2);
-            temp->setLambda(0.001);
-            temp->setIterationMax(200);
-            temp->setPyramidal(2, 1);
-            temp->initClick( I, true );
-            c.push_back( temp );
-            in.push_back( index++ );
+            cv::Mat frame;
+            std::vector<std::vector<cv::Point> > new_quads;
+            frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
+            // TODO: update quads with current points and only add new quads
+            fc.get_quads( frame, quads, new_quads );
+            for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
+                    q!=new_quads.end(); ++q )
+            {
+                std::vector<vpImagePoint> points;
+                vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
+                temp->setSampling(2,2);
+                temp->setLambda(0.001);
+                temp->setIterationMax(200);
+                temp->setPyramidal(2, 1);
+                //temp->initClick( I, true );
+                for( std::vector<cv::Point>::iterator p=q->begin();
+                        p!=q->end(); ++p )
+                {
+                    // Note ij notation used, not xy
+                    points.push_back( vpImagePoint( p->y, p->x ) );
+                }
+                temp->initFromPoints( I, points, true );
+                c.push_back( temp );
+                in.push_back( index++ );
+                quads.push_back( *q );
+            }
         }
 
         std::vector<unsigned>::iterator index=in.begin();
+        std::vector<std::vector<cv::Point> >::iterator q=quads.begin();
         std::vector<vpTemplateTrackerSSDInverseCompositional*>::iterator con=c.begin();
         while( con!=c.end() )
         {
@@ -127,6 +164,7 @@ int main(int argc, char** argv)
                     std::cerr << "Point out of frame. Removing contour." << std::endl;
                     con = c.erase(con);
                     index = in.erase(index);
+                    q = quads.erase(q);
                     removed=true;
                     break;
                 }
@@ -143,9 +181,14 @@ int main(int argc, char** argv)
                       << zone_points[2].y << " "
                       << zone_points[5].x << " " 
                       << zone_points[5].y << std::endl;
+            (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
+            (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
+            (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
+            (*q)[3] = cv::Point( zone_points[3].x, zone_points[3].y );
             (**con).display(I, vpColor::red);
             ++index;
             ++con;
+            ++q;
         }
         vpDisplay::flush(I);
         vpTime::wait(40);

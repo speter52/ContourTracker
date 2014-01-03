@@ -24,8 +24,12 @@ class ARC_FindContours
 		void set_upper_angle(int upperAngle);
 		void set_approx_poly(bool runApproxPolyDP);
 		void set_convex_hull(bool runConvexHull);
-		bool get_contours(cv::Mat image, std::vector<std::vector<cv::Point> >& contours);
-		bool get_quads(cv::Mat image, std::vector<std::vector<cv::Point> >& contours);
+		bool get_contours(cv::Mat image, 
+                std::vector<std::vector<cv::Point> >& curContours,
+                std::vector<std::vector<cv::Point> >& newContours );
+		bool get_quads(cv::Mat image, 
+                std::vector<std::vector<cv::Point> >& curContours,
+                std::vector<std::vector<cv::Point> >& newContours );
 
 	private:
 

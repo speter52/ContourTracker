@@ -211,30 +211,28 @@ void ARC_FindContours::getCanny(cv::Mat& image)
 
 //Public - Returns detected contours from a given image
 bool ARC_FindContours::get_contours(cv::Mat image,
-        std::vector<std::vector<cv::Point> >& curContours)
+        std::vector<std::vector<cv::Point> >& curContours,
+        std::vector<std::vector<cv::Point> >& newContours )
 {
-    std::vector<std::vector<cv::Point> > newContours;
     std::vector<cv::Vec4i> hierarchy;
 
-	getCanny(image);	
+	getCanny(image);
 	findContours( image, newContours, hierarchy,
             CV_RETR_LIST,CV_CHAIN_APPROX_NONE, cv::Point(0,0) );
 	filterContours(curContours,newContours);
 	
 	if(newContours.size()==0) return false;
-	for(size_t i=0;i<newContours.size();i++)
-	{
-		curContours.push_back(newContours[i]);
-	}
 	return true;
 }
 
 //Public - Returns detected quadrilaterals from a given image
-bool ARC_FindContours::get_quads(cv::Mat image, std::vector<std::vector<cv::Point> >& curContours)
+bool ARC_FindContours::get_quads(cv::Mat image,
+        std::vector<std::vector<cv::Point> >& curContours,
+        std::vector<std::vector<cv::Point> >& newContours )
 {
 	//Adjusts numOfSides for approxPoly and angle tests
 	numOfSides = 4;
-	bool found = get_contours(image,curContours);
+	bool found = get_contours(image, curContours, newContours);
 	numOfSides = -1;
 	return found;
 }
