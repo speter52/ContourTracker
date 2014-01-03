@@ -129,12 +129,19 @@ int main(int argc, char** argv)
                     removed=true;
                     break;
                 }
-                std::cout << *img << " "
-                          << *index << " " 
-                          << zone_points[i].x << " " 
-                          << zone_points[i].y << std::endl;
             }
             if( removed==true ) continue;
+            unsigned found = img->find_last_of("/");
+            std::cout << img->substr(found+1) << " "
+                      << *index << " " 
+                      << zone_points[0].x << " " 
+                      << zone_points[0].y << " "
+                      << zone_points[1].x << " " 
+                      << zone_points[1].y << " "
+                      << zone_points[2].x << " " 
+                      << zone_points[2].y << " "
+                      << zone_points[5].x << " " 
+                      << zone_points[5].y << std::endl;
             (**con).display(I, vpColor::red);
             ++index;
             ++con;
