@@ -189,13 +189,12 @@ void ARC_FindContours::getCanny(Mat & image)
 	cvtColor(image,imageGray,CV_BGR2GRAY);
 	blur(imageGray,imageGray,Size(3,3));
 	Mat cannyImage;
-
     Mat image2 = imageGray.clone();
 	Mat empty;
 	//TODO: Come up with a formula to automatically calculate canny thresholds? The formula below doesn't have good results so I hardcoded in values that worked before
-    double high_thres = cv::threshold( image2,empty, 0, 255, CV_THRESH_BINARY+CV_THRESH_OTSU );
-    double lower_thres = .5*high_thres;
-//    Canny(imageGray,cannyImage,lower_thres,high_thres);
+	double high_thres = cv::threshold( image2,empty, 0, 255, CV_THRESH_BINARY+CV_THRESH_OTSU );
+	double lower_thres = .5*high_thres;
+//  Canny(imageGray,cannyImage,lower_thres,high_thres);
 	Canny(imageGray,cannyImage,100,200,3);
 	dilate(cannyImage,cannyImage,Mat(),Point(-1,-1));//Running this step dramatically changes the contours that we get
 	image = cannyImage;
