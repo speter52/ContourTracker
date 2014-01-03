@@ -144,7 +144,7 @@ bool ARC_FindContours::applyThresholds(std::vector<cv::Point>& contour)
 
 	if( numOfSides>0 )
 	{
-		if( contour.size()!=numOfSides ) return false;	
+		if( (int)contour.size()!=numOfSides ) return false;	
 		if( numOfSides==4 )
 		{
 			if( angleTest(contour)==false ) return false;
@@ -159,8 +159,8 @@ bool ARC_FindContours::applyThresholds(std::vector<cv::Point>& contour)
 void ARC_FindContours::filterContours(std::vector<std::vector<cv::Point> >& curContours,
         std::vector<std::vector<cv::Point> >& newContours)
 {
-	int newContoursSize = newContours.size();
-	for(size_t i=0;i<newContoursSize;i++)
+	size_t newContoursSize = newContours.size();
+	for( size_t i=0; i<newContoursSize; i++)
 	{
 		bool isSeparate= true;
 		bool meetsThresholds = applyThresholds(newContours[i]);
@@ -192,20 +192,20 @@ void ARC_FindContours::filterContours(std::vector<std::vector<cv::Point> >& curC
 void ARC_FindContours::getCanny(cv::Mat& image)
 {
     cv::Mat imageGray;
-	cvtColor(image,imageGray,CV_BGR2GRAY);
-	blur(imageGray,imageGray,Size(3,3));
+	cvtColor( image, imageGray, CV_BGR2GRAY );
+	blur( imageGray, imageGray, cv::Size(3,3));
     cv::Mat cannyImage;
     cv::Mat image2 = imageGray.clone();
     cv::Mat empty;
     //TODO: Come up with a formula to automatically calculate canny thresholds?
     //The formula below doesn't have good results so I hardcoded in values that
     //worked before
-	double high_thres = cv::threshold( image2,empty, 0, 255, CV_THRESH_BINARY+CV_THRESH_OTSU );
-	double lower_thres = .5*high_thres;
+	//double high_thres = cv::threshold( image2,empty, 0, 255, CV_THRESH_BINARY+CV_THRESH_OTSU );
+	//double lower_thres = .5*high_thres;
     //Canny(imageGray,cannyImage,lower_thres,high_thres);
 	Canny(imageGray,cannyImage,100,200,3);
     //Running dilate dramatically changes the contours that we get
-	dilate(cannyImage,cannyImage,Mat(),Point(-1,-1));
+	dilate( cannyImage, cannyImage, cv::Mat(), cv::Point(-1,-1) );
 	image = cannyImage;
 }
 
@@ -217,7 +217,8 @@ bool ARC_FindContours::get_contours(cv::Mat image,
     std::vector<cv::Vec4i> hierarchy;
 
 	getCanny(image);	
-	findContours(image,newContours,hierarchy,CV_RETR_LIST,CV_CHAIN_APPROX_NONE, Point(0,0));
+	findContours( image, newContours, hierarchy,
+            CV_RETR_LIST,CV_CHAIN_APPROX_NONE, cv::Point(0,0) );
 	filterContours(curContours,newContours);
 	
 	if(newContours.size()==0) return false;
