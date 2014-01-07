@@ -34,6 +34,7 @@ void getImageList( std::string filename,  std::vector<std::string>* il )
 
 int main(int argc, char** argv)
 {
+    bool mouse;
     unsigned index=0;
     vpTemplateTrackerWarpHomography warp;
     std::string listname;
@@ -47,6 +48,8 @@ int main(int argc, char** argv)
     vpImage<unsigned char> I;
     vpDisplayX display;
 
+    mouse = false;
+    if( argc==3 ) mouse=true;
     listname = argv[1];
     getImageList( listname, &images );
 
@@ -60,35 +63,52 @@ int main(int argc, char** argv)
     vpDisplay::display(I);
     vpDisplay::flush(I);
 
-    // Select N contours.
-    std::cout << "Left click the points of the contour, "
-              << "right-click the final point." << std::endl;
-    //char line[5];
-    //do 
-    for( std::vector<std::vector<cv::Point> >::iterator q=quads.begin();
-            q!=quads.end(); ++q )
+    if( mouse )
     {
-        std::vector<vpImagePoint> points;
-        vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
-        temp->setSampling(2,2);
-        temp->setLambda(0.001);
-        temp->setIterationMax(200);
-        temp->setPyramidal(2, 1);
-        //temp->initClick( I, true );
-        for( std::vector<cv::Point>::iterator p=q->begin();
-                p!=q->end(); ++p )
+        // Select N contours.
+        std::cout << "Left click the points of the contour, "
+                  << "right-click the final point." << std::endl;
+        char line[5];
+        do 
         {
-            // Note ij notation used, not xy
-            points.push_back( vpImagePoint( p->y, p->x ) );
-        }
-        temp->initFromPoints( I, points, true );
-        c.push_back( temp );
-        in.push_back( index++ );
+            std::vector<vpImagePoint> points;
+            vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
+            temp->setSampling(2,2);
+            temp->setLambda(0.001);
+            temp->setIterationMax(200);
+            temp->setPyramidal(2, 1);
+            temp->initClick( I, true );
+            c.push_back( temp );
+            in.push_back( index++ );
 
-        //std::cout << "Press enter to continue adding contours. "
-                  //<< "Any other key followed by enter when done.";
-        //fgets(line, 4, stdin);
-    } //while( line[0]=='\n' );
+            std::cout << "Press enter to continue adding contours. "
+                      << "Any other key followed by enter when done.";
+            fgets(line, 4, stdin);
+        } while( line[0]=='\n' );
+
+    }
+    else
+    {
+        for( std::vector<std::vector<cv::Point> >::iterator q=quads.begin();
+                q!=quads.end(); ++q )
+        {
+            std::vector<vpImagePoint> points;
+            vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
+            temp->setSampling(2,2);
+            temp->setLambda(0.001);
+            temp->setIterationMax(200);
+            temp->setPyramidal(2, 1);
+            for( std::vector<cv::Point>::iterator p=q->begin();
+                    p!=q->end(); ++p )
+            {
+                // Note ij notation used, not xy
+                points.push_back( vpImagePoint( p->y, p->x ) );
+            }
+            temp->initFromPoints( I, points, true );
+            c.push_back( temp );
+            in.push_back( index++ );
+        } 
+    }
 
     for( std::vector<std::string>::iterator img=images.begin();
             img!=images.end(); ++img )
@@ -99,31 +119,48 @@ int main(int argc, char** argv)
         vpDisplay::flush(I);
         if( c.size()<ARC_MIN_CONTOURS )
         {
-            cv::Mat frame;
-            std::vector<std::vector<cv::Point> > new_quads;
-            frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
-            // TODO: update quads with current points and only add new quads
-            fc.get_quads( frame, quads, new_quads );
-            for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
-                    q!=new_quads.end(); ++q )
+            if( mouse )
             {
-                std::vector<vpImagePoint> points;
-                vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
-                temp->setSampling(2,2);
-                temp->setLambda(0.001);
-                temp->setIterationMax(200);
-                temp->setPyramidal(2, 1);
-                //temp->initClick( I, true );
-                for( std::vector<cv::Point>::iterator p=q->begin();
-                        p!=q->end(); ++p )
+                while( c.size()<ARC_MIN_CONTOURS )
                 {
-                    // Note ij notation used, not xy
-                    points.push_back( vpImagePoint( p->y, p->x ) );
+                    std::cout << "Select contour." << std::endl;
+                    vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
+                    temp->setSampling(2,2);
+                    temp->setLambda(0.001);
+                    temp->setIterationMax(200);
+                    temp->setPyramidal(2, 1);
+                    temp->initClick( I, true );
+                    c.push_back( temp );
+                    in.push_back( index++ );
                 }
-                temp->initFromPoints( I, points, true );
-                c.push_back( temp );
-                in.push_back( index++ );
-                quads.push_back( *q );
+            }
+            else
+            {
+                cv::Mat frame;
+                std::vector<std::vector<cv::Point> > new_quads;
+                frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
+                // TODO: update quads with current points and only add new quads
+                fc.get_quads( frame, quads, new_quads );
+                for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
+                        q!=new_quads.end(); ++q )
+                {
+                    std::vector<vpImagePoint> points;
+                    vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
+                    temp->setSampling(2,2);
+                    temp->setLambda(0.001);
+                    temp->setIterationMax(200);
+                    temp->setPyramidal(2, 1);
+                    for( std::vector<cv::Point>::iterator p=q->begin();
+                            p!=q->end(); ++p )
+                    {
+                        // Note ij notation used, not xy
+                        points.push_back( vpImagePoint( p->y, p->x ) );
+                    }
+                    temp->initFromPoints( I, points, true );
+                    c.push_back( temp );
+                    in.push_back( index++ );
+                    quads.push_back( *q );
+                }
             }
         }
 
@@ -164,7 +201,7 @@ int main(int argc, char** argv)
                     std::cerr << "Point out of frame. Removing contour." << std::endl;
                     con = c.erase(con);
                     index = in.erase(index);
-                    q = quads.erase(q);
+                    if( !mouse ) q = quads.erase(q);
                     removed=true;
                     break;
                 }
@@ -181,14 +218,17 @@ int main(int argc, char** argv)
                       << zone_points[2].y << " "
                       << zone_points[5].x << " " 
                       << zone_points[5].y << std::endl;
-            (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
-            (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
-            (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
-            (*q)[3] = cv::Point( zone_points[3].x, zone_points[3].y );
+            if( !mouse )
+            {
+                (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
+                (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
+                (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
+                (*q)[3] = cv::Point( zone_points[3].x, zone_points[3].y );
+            }
             (**con).display(I, vpColor::red);
             ++index;
             ++con;
-            ++q;
+            if( !mouse ) ++q;
         }
         vpDisplay::flush(I);
         vpTime::wait(40);
