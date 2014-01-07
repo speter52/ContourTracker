@@ -139,7 +139,6 @@ int main(int argc, char** argv)
                 cv::Mat frame;
                 std::vector<std::vector<cv::Point> > new_quads;
                 frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
-                // TODO: update quads with current points and only add new quads
                 fc.get_quads( frame, quads, new_quads );
                 for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
                         q!=new_quads.end(); ++q )
@@ -180,6 +179,7 @@ int main(int argc, char** argv)
                 std::cerr << ExceptObj.what() << std::endl;
                 con = c.erase(con);
                 index = in.erase(index);
+                if( !mouse ) q = quads.erase(q);
                 continue;
             }
             catch (...) {		/* handle exception: unspecified */
@@ -192,8 +192,19 @@ int main(int argc, char** argv)
             bool removed=false;
             for( int i=0; i<6; ++i )
             {
+                bool duplicate_points=false;
+                for( int j=i+1; j<6; ++j )
+                {
+                    if( j==3 || j==4 ) continue;
+                    if( zone_points[i].x==zone_points[j].x &&
+                            zone_points[i].y==zone_points[j].y )
+                    {
+                        duplicate_points=true;
+                    }
+                }
                 if( i==3 || i==4 ) continue; // True for quadrilaterals
-                if( zone_points[i].x > ARC_WIDTH ||
+                if( duplicate_points ||
+                        zone_points[i].x > ARC_WIDTH ||
                         zone_points[i].x < 0 ||
                         zone_points[i].y > ARC_HEIGHT ||
                         zone_points[i].y < 0 )
