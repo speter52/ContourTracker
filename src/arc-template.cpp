@@ -32,7 +32,6 @@ pad ( std::vector<cv::Point>& con, int N, cv::Size sz )
     {
         unit = cv::Vec2i(*pt)-center;
         unit = (1/norm(unit)) * unit;
-        std::cout << "U: " << unit << std::endl;
         *pt += cv::Point(N * unit);
     }
     return;
@@ -66,6 +65,7 @@ void getImageList( std::string filename,  std::vector<std::string>* il )
 int main(int argc, char** argv)
 {
     bool mouse;
+    unsigned int count;
     unsigned index=0;
     vpTemplateTrackerWarpHomography warp;
     std::string listname;
@@ -142,14 +142,16 @@ int main(int argc, char** argv)
         } 
     }
 
+    count=0;
     for( std::vector<std::string>::iterator img=images.begin();
-            img!=images.end(); ++img )
+            img!=images.end(); ++img, ++count )
     {
         vpImageIo::read(I, *img);
         vpDisplay::display(I);
         // Add more contours if necessary
         vpDisplay::flush(I);
-        if( c.size()<ARC_MIN_CONTOURS )
+        //if( c.size()<ARC_MIN_CONTOURS )
+        if( count%20==0 )
         {
             if( mouse )
             {
@@ -252,7 +254,8 @@ int main(int argc, char** argv)
             }
             if( removed==true ) continue;
             unsigned found = img->find_last_of("/");
-            std::cout << img->substr(found+1) << " "
+            unsigned ext = img->find_last_of(".");
+            std::cout << img->substr(found+1, ext-found-1) << " "
                       << *index << " " 
                       << zone_points[0].x << " " 
                       << zone_points[0].y << " "
