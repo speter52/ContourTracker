@@ -19,5 +19,6 @@
 #define ARC_MIN_CONTOURS 3            /* Will add more contours if number tracked falls below */
 #define ARC_WIDTH 640            /*  */
 #define ARC_HEIGHT 480            /*  */
+void pad ( std::vector<cv::Point>& con, int N, cv::Size sz );
 void getImageList( std::string filename,  std::vector<std::string>* il );
 #endif   /* ----- #ifndef arc-template_INC  ----- */

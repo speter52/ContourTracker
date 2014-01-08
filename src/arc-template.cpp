@@ -9,6 +9,37 @@
 
 /* 
  * ===  FUNCTION  ======================================================================
+ *         Name:  pad
+ *  Description:  Pads a contour of a quadrilateral.
+ * =====================================================================================
+ */
+    void
+pad ( std::vector<cv::Point>& con, int N, cv::Size sz )
+{
+    cv::Rect br;
+    cv::Vec2i center;
+    cv::Vec2f unit;
+
+    if( con.size()!=4 )
+        std::cerr << "Padded contour not a quadrilateral." << std::endl;
+
+    // Create a rect the size of the frame to prevent extending outside of frame.
+    // Bound the contour by a rect, then shift and expand to pad by N.
+    br = boundingRect( con );
+    center = cv::Vec2i( br.tl() ) + cv::Vec2i(br.width/2, br.height/2);
+    for( std::vector<cv::Point>::iterator pt=con.begin();
+            pt!=con.end(); ++pt )
+    {
+        unit = cv::Vec2i(*pt)-center;
+        unit = (1/norm(unit)) * unit;
+        std::cout << "U: " << unit << std::endl;
+        *pt += cv::Point(N * unit);
+    }
+    return;
+}		/* -----  end of function pad  ----- */
+
+/* 
+ * ===  FUNCTION  ======================================================================
  *         Name:  getImageList
  *  Description:  Reads in list of image filenames.
  * =====================================================================================
@@ -54,7 +85,7 @@ int main(int argc, char** argv)
     getImageList( listname, &images );
 
     firstFrame = cv::imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
-    fc.get_quads( firstFrame, quads, quads );
+    fc.squares( firstFrame, quads, quads );
     drawContours( firstFrame, quads, -1, cv::Scalar( 0, 255, 0) );
     //cv::imshow( "test", firstFrame );
     //cv::waitKey( 10 );
@@ -93,6 +124,7 @@ int main(int argc, char** argv)
                 q!=quads.end(); ++q )
         {
             std::vector<vpImagePoint> points;
+            pad( *q, 5, cv::Size(ARC_WIDTH, ARC_HEIGHT) );
             vpTemplateTrackerSSDInverseCompositional* temp=new vpTemplateTrackerSSDInverseCompositional(&warp);
             temp->setSampling(2,2);
             temp->setLambda(0.001);
@@ -139,7 +171,7 @@ int main(int argc, char** argv)
                 cv::Mat frame;
                 std::vector<std::vector<cv::Point> > new_quads;
                 frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
-                fc.get_quads( frame, quads, new_quads );
+                fc.squares( frame, quads, new_quads );
                 for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
                         q!=new_quads.end(); ++q )
                 {
@@ -149,6 +181,7 @@ int main(int argc, char** argv)
                     temp->setLambda(0.001);
                     temp->setIterationMax(200);
                     temp->setPyramidal(2, 1);
+                    pad( *q, 5, cv::Size(ARC_WIDTH, ARC_HEIGHT) );
                     for( std::vector<cv::Point>::iterator p=q->begin();
                             p!=q->end(); ++p )
                     {

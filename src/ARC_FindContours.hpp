@@ -10,6 +10,10 @@
 #include <iostream>
 #include <string>
 
+#include "opencv2/imgproc/imgproc.hpp"
+
+#include <math.h>
+
 class ARC_FindContours
 {
 	public:
@@ -30,6 +34,9 @@ class ARC_FindContours
 		bool get_quads(cv::Mat image, 
                 std::vector<std::vector<cv::Point> >& curContours,
                 std::vector<std::vector<cv::Point> >& newContours );
+        void squares ( cv::Mat image, 
+                std::vector<std::vector<cv::Point> >& curContours,
+                std::vector<std::vector<cv::Point> >& newContours);
 
 	private:
 
@@ -38,6 +45,7 @@ class ARC_FindContours
 		int lowerAngleThreshold;
 		int upperAngleThreshold;
 		int numOfSides;
+        int edge_margin;
 		bool runPoly;
 		bool runHull;
 
@@ -49,5 +57,6 @@ class ARC_FindContours
 		void filterContours(std::vector<std::vector<cv::Point> >& curContours,
                 std::vector<std::vector<cv::Point> >& newContours);
 		void getCanny(cv::Mat& image);
+        double angle ( cv::Point pt1, cv::Point pt2, cv::Point pt0 );
 };
 #endif		
