@@ -64,7 +64,8 @@ void getImageList( std::string filename,  std::vector<std::string>* il )
 
 int main(int argc, char** argv)
 {
-    bool mouse;
+    bool mouse, video, image_out;
+    char img_dir[50];
     unsigned int count;
     unsigned index=0;
     vpTemplateTrackerWarpHomography warp;
@@ -80,7 +81,30 @@ int main(int argc, char** argv)
     vpDisplayX display;
 
     mouse = false;
-    if( argc==3 ) mouse=true;
+    video = false;
+    image_out = false;
+    if( argc>2 ) 
+    {
+        for( int i=2; i<argc; ++i )
+        {
+            if( strcmp(argv[i], "-m") )
+            {
+                mouse=true;
+            }
+            else if( strcmp(argv[i], "-v") )
+            {
+                video=true;
+            }
+            else if( strcmp(argv[i], "-i") )
+                strcpy(img_dir, argv[++i]);
+            else
+                ;
+        }
+    }
+    if( video )
+    {
+        // TODO: init video
+    }
     listname = argv[1];
     getImageList( listname, &images );
 
@@ -279,5 +303,9 @@ int main(int argc, char** argv)
         }
         vpDisplay::flush(I);
         vpTime::wait(40);
+        if( image_out )
+        {
+            // TODO: save imag
+        }
     }
 }
