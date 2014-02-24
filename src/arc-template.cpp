@@ -65,7 +65,7 @@ void getImageList( std::string filename,  std::vector<std::string>* il )
 int main(int argc, char** argv)
 {
     bool mouse, video, image_out;
-    char img_dir[50];
+    std::string img_dir;
     unsigned int count;
     unsigned index=0;
     vpTemplateTrackerWarpHomography warp;
@@ -87,16 +87,19 @@ int main(int argc, char** argv)
     {
         for( int i=2; i<argc; ++i )
         {
-            if( strcmp(argv[i], "-m") )
+            if( !strcmp(argv[i], "-m") )
             {
                 mouse=true;
             }
-            else if( strcmp(argv[i], "-v") )
+            else if( !strcmp(argv[i], "-v") )
             {
                 video=true;
             }
-            else if( strcmp(argv[i], "-i") )
-                strcpy(img_dir, argv[++i]);
+            else if( !strcmp(argv[i], "-i") )
+            {
+                img_dir = argv[++i];
+                image_out = true;
+            }
             else
                 ;
         }
@@ -170,6 +173,8 @@ int main(int argc, char** argv)
     for( std::vector<std::string>::iterator img=images.begin();
             img!=images.end(); ++img, ++count )
     {
+        cv::Mat frame;
+        frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
         vpImageIo::read(I, *img);
         vpDisplay::display(I);
         // Add more contours if necessary
@@ -194,9 +199,7 @@ int main(int argc, char** argv)
             }
             else
             {
-                cv::Mat frame;
                 std::vector<std::vector<cv::Point> > new_quads;
-                frame = cv::imread( *img, CV_LOAD_IMAGE_UNCHANGED );
                 fc.squares( frame, quads, new_quads );
                 for( std::vector<std::vector<cv::Point> >::iterator q=new_quads.begin();
                         q!=new_quads.end(); ++q )
@@ -294,17 +297,41 @@ int main(int argc, char** argv)
                 (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
                 (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
                 (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
-                (*q)[3] = cv::Point( zone_points[3].x, zone_points[3].y );
+                (*q)[3] = cv::Point( zone_points[5].x, zone_points[5].y );
             }
             (**con).display(I, vpColor::red);
+            // Draw onto frame (for opencv processing and display)
             ++index;
             ++con;
             if( !mouse ) ++q;
         }
         vpDisplay::flush(I);
-        vpTime::wait(40);
-        if( image_out )
+        //vpTime::wait(40);
+        if( image_out || video )
         {
+            // use convexHull since we don't know the order of the points
+            for(std::vector<std::vector<cv::Point> >::iterator q=quads.begin();
+                    q!=quads.end(); ++q )
+            {
+                std::vector<cv::Point> hull;
+                convexHull( *q, hull, true, true );
+                *q=hull;
+            }
+            cv::drawContours( frame, quads, -1, cv::Scalar(0,255,0), 1, CV_AA );
+            if( image_out )
+            {
+                std::string fn;
+                unsigned bn_start, dir_last;
+                dir_last = img_dir.length();
+                if( img_dir[dir_last-1]!='/' ) img_dir.append("/");
+                
+                bn_start = img->find_last_of("/");
+                fn = img_dir + img->substr(bn_start+1);
+                cv::imwrite( fn, frame );
+            }
+
+            cv::imshow("IMG", frame);
+            cv::waitKey(10);
             // TODO: save imag
         }
     }
