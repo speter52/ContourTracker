@@ -84,25 +84,29 @@ int main(int argc, char** argv)
     mouse = false;
     video = false;
     image_out = false;
-    if( argc>2 ) 
+    for( int i=1; i<argc; ++i )
     {
-        for( int i=2; i<argc; ++i )
+        if( !strcmp(argv[i], "-m") )
         {
-            if( !strcmp(argv[i], "-m") )
-            {
-                mouse=true;
-            }
-            else if( !strcmp(argv[i], "-v") )
-            {
-                video=true;
-            }
-            else if( !strcmp(argv[i], "-i") )
-            {
-                img_dir = argv[++i];
-                image_out = true;
-            }
-            else
+            mouse=true;
+        }
+        else if( !strcmp(argv[i], "-v") )
+        {
+            video=true;
+        }
+        else if( !strcmp(argv[i], "-i") )
+        {
+            img_dir = argv[++i];
+            image_out = true;
+        }
+        else if( !strcmp(argv[i], "-h") )
+        {
+            std::cout << "Usage: " << argv[0] << std::endl
+                << "-m\tEnable mouse clicking" << std::endl
+                << "-v\tOutput video to out.avi" << std::endl
+                << "-i <outdir>\tOutput images to outdir" << std::endl
                 ;
+            exit( EXIT_SUCCESS );
         }
     }
     listname = argv[1];
