@@ -147,6 +147,23 @@ int main(int argc, char** argv)
             temp->setIterationMax(200);
             temp->setPyramidal(2, 1);
             temp->initClick( I, true );
+
+            // Get points
+            vpTemplateTrackerZone t_zone;
+            vpTemplateTrackerZPoint* zone_points;
+            vpColVector p = temp->getp();
+            warp.warpZone(t_zone, p);
+            zone_points = t_zone.getListPtWarpes();
+
+            std::vector<cv::Point> temp_cont;
+            for( size_t i=0; i<6; ++i )
+            {
+                if( i==3||i==4 ) continue;
+                cv::Point pt(zone_points->x, zone_points->y);
+                temp_cont.push_back(pt);
+            }
+            quads.push_back( temp_cont );
+
             c.push_back( temp );
             in.push_back( index++ );
 
@@ -204,6 +221,23 @@ int main(int argc, char** argv)
                     temp->setIterationMax(200);
                     temp->setPyramidal(2, 1);
                     temp->initClick( I, true );
+                    
+                    // Get points
+                    vpTemplateTrackerZone t_zone;
+                    vpTemplateTrackerZPoint* zone_points;
+                    vpColVector p = temp->getp();
+                    warp.warpZone(t_zone, p);
+                    zone_points = t_zone.getListPtWarpes();
+
+                    std::vector<cv::Point> temp_cont;
+                    for( size_t i=0; i<6; ++i )
+                    {
+                        if( i==3||i==4 ) continue;
+                        cv::Point pt(zone_points->x, zone_points->y);
+                        temp_cont.push_back(pt);
+                    }
+                    quads.push_back( temp_cont );
+
                     c.push_back( temp );
                     in.push_back( index++ );
                 }
@@ -252,7 +286,7 @@ int main(int argc, char** argv)
                 std::cerr << ExceptObj.what() << std::endl;
                 con = c.erase(con);
                 index = in.erase(index);
-                if( !mouse ) q = quads.erase(q);
+                q=quads.erase(q);
                 continue;
             }
             catch (...) {		/* handle exception: unspecified */
@@ -285,7 +319,7 @@ int main(int argc, char** argv)
                     std::cerr << "Point out of frame. Removing contour." << std::endl;
                     con = c.erase(con);
                     index = in.erase(index);
-                    if( !mouse ) q = quads.erase(q);
+                    q=quads.erase(q);
                     removed=true;
                     break;
                 }
@@ -303,18 +337,17 @@ int main(int argc, char** argv)
                       << zone_points[2].y << " "
                       << zone_points[5].x << " " 
                       << zone_points[5].y << std::endl;
-            if( !mouse )
-            {
-                (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
-                (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
-                (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
-                (*q)[3] = cv::Point( zone_points[5].x, zone_points[5].y );
-            }
+
+            (*q)[0] = cv::Point( zone_points[0].x, zone_points[0].y );
+            (*q)[1] = cv::Point( zone_points[1].x, zone_points[1].y );
+            (*q)[2] = cv::Point( zone_points[2].x, zone_points[2].y );
+            (*q)[3] = cv::Point( zone_points[5].x, zone_points[5].y );
+
             (**con).display(I, vpColor::red);
             // Draw onto frame (for opencv processing and display)
             ++index;
             ++con;
-            if( !mouse ) ++q;
+            ++q;
         }
         vpDisplay::flush(I);
         //vpTime::wait(40);
@@ -347,7 +380,6 @@ int main(int argc, char** argv)
 
             cv::imshow("IMG", frame);
             cv::waitKey(10);
-            // TODO: save imag
         }
     }
 }
