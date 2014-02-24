@@ -79,6 +79,7 @@ int main(int argc, char** argv)
     std::vector<unsigned> in;
     vpImage<unsigned char> I;
     vpDisplayX display;
+    cv::VideoWriter vidout;
 
     mouse = false;
     video = false;
@@ -104,14 +105,20 @@ int main(int argc, char** argv)
                 ;
         }
     }
-    if( video )
-    {
-        // TODO: init video
-    }
     listname = argv[1];
     getImageList( listname, &images );
 
     firstFrame = cv::imread( images[0], CV_LOAD_IMAGE_UNCHANGED );
+    if( video )
+    {
+        vidout.open( std::string("out.avi"), CV_FOURCC('F','M','P','4'), 20.0, firstFrame.size(), true);
+        if( !vidout.isOpened() )
+        {
+            std::cerr << "Could not open video file out.avi" << std::endl;
+            exit( EXIT_FAILURE );
+        }
+    }
+
     fc.squares( firstFrame, quads, quads );
     drawContours( firstFrame, quads, -1, cv::Scalar( 0, 255, 0) );
     //cv::imshow( "test", firstFrame );
@@ -328,6 +335,10 @@ int main(int argc, char** argv)
                 bn_start = img->find_last_of("/");
                 fn = img_dir + img->substr(bn_start+1);
                 cv::imwrite( fn, frame );
+            }
+            if( video )
+            {
+                vidout << frame;
             }
 
             cv::imshow("IMG", frame);
